@@ -1089,14 +1089,16 @@ class Account:
         activation = bool(parser.find("span", {"class": "label label-warning"}))
         reg_data = parser.find("div", class_="text-nowrap")
         reg_data = reg_data.text.split('\n')[1].strip() if reg_data else "Неизвестно"
-        support = bool(parser.find("span", {"class": "label label-success"}))
+        support = bool(parser.find("small", {"class": "user-badges"}).find("span", {"class": "label label-success"}, text=lambda t: t and t in ["поддержка", "support", "підтримка"]))
+        arbitration = bool(parser.find("small", {"class": "user-badges"}).find("span", {"class": "label label-success"}, text=lambda t: t and t in ["арбитраж", "арбітраж", "arbitration"]))
+        moderation = bool(parser.find("small", {"class": "user-badges"}).find("span", {"class": "label label-success"}, text=lambda t: t and t in ["модерация", "модерація", "moderation"]))
         rating = parser.find("div", class_="rating-full-count")
         rating = re.search(r"\d+", rating.text).group() if rating else "0"
         reviews = parser.find("span", class_="big")
         reviews = reviews.text if reviews else "0"
         lots_count = len(parser.find_all("a", {"class": "tc-item"}))
         user_obj = types.UserProfile(user_id, username, avatar_link, "Онлайн" in user_status or "Online" in user_status,
-                                     banned, activation, reg_data, support, rating, reviews, lots_count, html_response)
+                                     banned, activation, reg_data, support, arbitration, moderation, rating, reviews, lots_count, html_response)
 
         subcategories_divs = parser.find_all("div", {"class": "offer-list-title-container"})
 

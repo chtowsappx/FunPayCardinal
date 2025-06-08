@@ -1092,7 +1092,7 @@ class UserProfile:
     :type html: :obj:`str`
     """
 
-    def __init__(self, id_: int, username: str, profile_photo: str, online: bool, banned: bool, activation: bool, reg_data: str, support: bool, rating: int, reviews: int, lots_count: int, html: str):
+    def __init__(self, id_: int, username: str, profile_photo: str, online: bool, banned: bool, activation: bool, reg_data: str, support: bool, arbitration: bool, moderation: bool, rating: int, reviews: int, lots_count: int, html: str):
         self.id: int = id_
         """ID пользователя."""
         self.username: str = username
@@ -1109,6 +1109,10 @@ class UserProfile:
         """Дата регистрации пользователя."""
         self.support: bool = support
         """Является ли пользователь поддержкой."""
+        self.arbitration: bool = arbitration
+        """Является ли пользователем арбитражом."""
+        self.moderation: bool = moderation
+        """Является ли пользователем модератором."""
         self.rating: int = rating
         """Рейтинг пользователя."""
         self.reviews: int = reviews

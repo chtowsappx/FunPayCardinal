@@ -482,7 +482,7 @@ class Cardinal(object):
                         time.sleep(entity)
                     break
                 except Exception as ex:
-                    if "Нельзя отправлять ссылки слишком часто" in str(ex):
+                    if "Нельзя отправлять ссылки слишком часто" or "Нельзя слишком часто отправлять сообщения разным пользователям." in str(ex):
                         logger.info(_("crd_msg_link_delay", 3, chat_id))
                         time.sleep(3)
                         continue
