@@ -1089,9 +1089,10 @@ class Account:
         activation = bool(parser.find("span", {"class": "label label-warning"}))
         reg_data = parser.find("div", class_="text-nowrap")
         reg_data = reg_data.text.split('\n')[1].strip() if reg_data else "Неизвестно"
-        support = bool(parser.find("small", {"class": "user-badges"}).find("span", {"class": "label label-success"}, text=lambda t: t and t in ["поддержка", "support", "підтримка"]))
-        arbitration = bool(parser.find("small", {"class": "user-badges"}).find("span", {"class": "label label-success"}, text=lambda t: t and t in ["арбитраж", "арбітраж", "arbitration"]))
-        moderation = bool(parser.find("small", {"class": "user-badges"}).find("span", {"class": "label label-success"}, text=lambda t: t and t in ["модерация", "модерація", "moderation"]))
+        user_badges = parser.find("small", {"class": "user-badges"})
+        support = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["поддержка", "support", "підтримка"])) if user_badges else False
+        arbitration = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["арбитраж", "арбітраж", "arbitration"])) if user_badges else False
+        moderation = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["модерация", "модерація", "moderation"])) if user_badges else False
         rating = parser.find("div", class_="rating-full-count")
         rating = re.search(r"\d+", rating.text).group() if rating else "0"
         reviews = parser.find("span", class_="big")
