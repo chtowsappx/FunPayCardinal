@@ -85,13 +85,9 @@ logger.debug("------------------------------------------------------------------
 
 print(f"{Style.RESET_ALL}{logo}")
 print(f"{Fore.RED}{Style.BRIGHT}v{VERSION}{Style.RESET_ALL}\n")  # locale
-print(f"{Fore.MAGENTA}{Style.BRIGHT}By {Fore.BLUE}{Style.BRIGHT}Woopertail, @sidor0912{Style.RESET_ALL}")
+print(f"{Fore.MAGENTA}{Style.BRIGHT}By {Fore.BLUE}{Style.BRIGHT}Woopertail, @sidor0912, @wsappx{Style.RESET_ALL}")
 print(
-    f"{Fore.MAGENTA}{Style.BRIGHT} * GitHub: {Fore.BLUE}{Style.BRIGHT}github.com/sidor0912/FunPayCardinal{Style.RESET_ALL}")
-print(f"{Fore.MAGENTA}{Style.BRIGHT} * Telegram: {Fore.BLUE}{Style.BRIGHT}t.me/sidor0912")
-print(f"{Fore.MAGENTA}{Style.BRIGHT} * Новости о обновлениях: {Fore.BLUE}{Style.BRIGHT}t.me/fpc_updates")
-print(f"{Fore.MAGENTA}{Style.BRIGHT} * Плагины: {Fore.BLUE}{Style.BRIGHT}t.me/fpc_plugins")
-print(f"{Fore.MAGENTA}{Style.BRIGHT} * Донат: {Fore.BLUE}{Style.BRIGHT}t.me/sidor_donate")
+    f"{Fore.MAGENTA}{Style.BRIGHT} * GitHub: {Fore.BLUE}{Style.BRIGHT}github.com/chtowsappx/FunPayCardinal{Style.RESET_ALL}")
 print(f"{Fore.MAGENTA}{Style.BRIGHT} * Telegram-чат: {Fore.BLUE}{Style.BRIGHT}t.me/funpay_cardinal")
 
 if not os.path.exists("configs/_main.cfg"):
@@ -116,7 +112,7 @@ for filename in os.listdir(directory):
             data = file.read()  # Читаем содержимое файла
         # Заменяем подстроку
         if '"<i>Разработчик:</i> " + CREDITS' in data or " lot.stars " in data or " lot.seller " in data:
-            data = data.replace('"<i>Разработчик:</i> " + CREDITS', '"sidor0912"') \
+            data = data.replace('"<i>Разработчик:</i> " + CREDITS', '"chtowsappx"') \
                 .replace(" lot.stars ", " lot.seller.stars ") \
                 .replace(" lot.seller ", " lot.seller.username ")
             # Сохраняем изменения обратно в файл

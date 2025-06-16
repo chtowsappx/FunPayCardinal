@@ -25,7 +25,6 @@ import os
 from pip._internal.cli.main import main
 import FunPayAPI
 import handlers
-import announcements
 from locales.localizer import Localizer
 from FunPayAPI import utils as fp_utils
 from Utils import cardinal_tools
@@ -637,7 +636,6 @@ class Cardinal(object):
         получает данные аккаунта и профиля.
         """
         self.add_handlers_from_plugin(handlers)
-        self.add_handlers_from_plugin(announcements)
         self.load_plugins()
         self.add_handlers()
 
@@ -651,21 +649,6 @@ class Cardinal(object):
 
         if self.MAIN_CFG["Telegram"].getboolean("enabled"):
             self.telegram.setup_commands()
-            try:
-                self.telegram.edit_bot()
-            except AttributeError:  # todo убрать когда-то
-                logger.warning("Произошла ошибка при изменении бота Telegram. Обновляю библиотеку...")
-                logger.debug("TRACEBACK", exc_info=True)
-                try:
-                    main(["install", "-U", "pytelegrambotapi==4.15.2"])
-                    logger.info("Библиотека обновлена.")
-                except:
-                    logger.warning("Произошла ошибка при обновлении библиотеки.")
-                    logger.debug("TRACEBACK", exc_info=True)
-            except:
-                logger.warning("Произошла ошибка при изменении бота Telegram.")
-                logger.debug("TRACEBACK", exc_info=True)
-
             Thread(target=self.telegram.run, daemon=True).start()
 
         self.__init_account()

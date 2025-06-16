@@ -37,4 +37,4 @@ ReadWritePaths=/home/%i/FunPayCardinal /home/%i/pyvenv -/run/FunPayCardinal
 [Unit]
 After=network.target
 Description=FunPayCardinal Bot Service (on %I)
-Documentation=https://github.com/sidor0912/FunPayCardinal/blob/main/README.md
+Documentation=https://github.com/chtowsappx/FunPayCardinal/blob/main/README.md

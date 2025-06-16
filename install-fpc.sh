@@ -15,7 +15,7 @@ clear
 echo -e $logo
 
 
-echo -e "\n\n${RED} * GitHub ${CYAN}github.com/sidor0912/FunPayCardinal${RESET}"
+echo -e "\n\n${RED} * GitHub ${CYAN}github.com/chtowsappx/FunPayCardinal${RESET}"
 echo -e "${RED} * Telegram ${CYAN}t.me/funpay_cardinal${RESET}"
 echo -e "\n\n\n"
 
@@ -217,7 +217,7 @@ if ! sudo mkdir /home/$username/fpc-install ; then
   exit 2
 fi
 
-gh_repo="sidor0912/FunPayCardinal"
+gh_repo="chtowsappx/FunPayCardinal"
 LOCATION=$(curl -sS https://api.github.com/repos/$gh_repo/releases/latest | grep "zipball_url" | awk '{ print $2 }' | sed 's/,$//' | sed 's/"//g' )
 
 #14
@@ -297,7 +297,7 @@ esac
 
 clear
 echo -e $logo
-echo -e '\n\n\e[1;91m * GitHub \e[1;96mgithub.com/sidor0912/FunPayCardinal\e[0m'
+echo -e '\n\n\e[1;91m * GitHub \e[1;96mgithub.com/chtowsappx/FunPayCardinal\e[0m'
 echo -e '\e[1;91m * Telegram \e[1;96mt.me/funpay_cardinal\e[0m'
 
 echo -e "\n\n\e[1;92m################################################################################"
@@ -314,7 +314,7 @@ sudo systemctl start FunPayCardinal@$username.service
 
 clear
 echo -e $logo
-echo -e '\n\n\e[1;91m * GitHub \e[1;96mgithub.com/sidor0912/FunPayCardinal\e[0m'
+echo -e '\n\n\e[1;91m * GitHub \e[1;96mgithub.com/chtowsappx/FunPayCardinal\e[0m'
 echo -e '\e[1;91m * Telegram \e[1;96mt.me/funpay_cardinal\e[0m'
 
 echo -e "\n\n\e[1;92m################################################################################"

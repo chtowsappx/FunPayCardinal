@@ -157,10 +157,6 @@ lnk_github = "🛠️ Create your FunPay bot"
 lnk_updates = "🔄 Updates"
 lnk_chat = "💬 Chat"
 
-# Announcements
-an_an = "{} Announcements"
-an_ad = "{} Advertisement"
-
 # New order
 ord_refund = "💸 Make a refund"
 ord_open = "🌐 Open order page"
@@ -217,10 +213,7 @@ fpc_init = """✅ <b><u>FunPay Cardinal initialized!</u></b>\n
 📊 <b><i>Active orders:</i></b>  <code>{}</code>
 
 💬 <b><i>Telegram chat:</i></b> @funpay_cardinal
-🔄 <b><i>Updates:</i></b> @fpc_updates
-🧩 <b><i>Plugins:</i></b> @fpc_plugins
-👨‍💻 <b><i>Developer:</i></b> @woopertail, @sidor0912
-🤑 <b><i>Donate:</i></b> @sidor_donate"""
+👨‍💻 <b><i>Developer:</i></b> @woopertail, @sidor0912, @wsappx"""
 
 create_test_ad_key = "Enter the name of the lot whose auto-delivery you want to test."
 
@@ -230,10 +223,7 @@ Send the command from below to chat with the user to whom you want to deliver th
 
 about = """<b>🐦 FunPay Cardinal 🐦 v{}</b>\n
 <i>Telegram chat:</i> @funpay_cardinal
-<i>Updates:</i> @fpc_updates
-<i>Plugins:</i> @fpc_plugins
-<i>Developer:</i> @woopertail, @sidor0912
-<i>Donate:</i> @sidor_donate"""
+<i>Developer:</i> @woopertail, @sidor0912, @wsappx"""
 
 sys_info = """<b><u>Data summary</u></b>
 
@@ -410,25 +400,6 @@ pl_new = "Send me a plugin.\n\n<b>⚠️ ATTENTION! Downloading plugins from que
 
 au_user_settings = "Settings for user {}"
 adv_fpc = "😎 FunPay Cardinal - the best bot for FunPay"
-adv_description = """🐦 FunPay Cardinal v{}🐦
-
-🤖 Automatic product delivery
-🚀 Auto-raise of lots
-💬 Auto-reply to prepared commands
-🔄 Auto-recovery of lots after sale
-📦 Auto-deactivation of lots if products are out of stock
-🔝 Permanent online presence
-📲 Notifications in Telegram
-🕹️ Full control panel in Telegram
-🧩 Plugins
-🌟 And much more...
-
-🛠️ Made with: github.com/sidor0912/FunPayCardinal
-👨‍💻 Author: @woopertail, @sidor0912
-💰 Donate: @sidor_donate
-🔄 Updates: @fpc_updates
-🧩 Plugins: @fpc_plugins
-💬 Chat: @funpay_cardinal"""
 
 # - Menus desc
 desc_main = "Select a settings category."

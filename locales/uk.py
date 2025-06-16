@@ -157,10 +157,6 @@ lnk_github = "🛠️ Створити свого бота FunPay"
 lnk_updates = "🔄 Оновлення"
 lnk_chat = "💬 Чат"
 
-# Оголошення
-an_an = "{} Оголошення"
-an_ad = "{} Реклама"
-
 # Нове замовлення
 ord_refund = "💸 Повернути гроші"
 ord_open = "🌐 Відкрити сторінку замовлення"
@@ -218,10 +214,7 @@ fpc_init = """✅ <b><u>FunPay Cardinal ініціалізовано!</u></b>\n
 📊 <b><i>Активні замовлення:</i></b>  <code>{}</code>
 
 💬 <b><i>Telegram чат:</i></b> @funpay_cardinal
-🔄 <b><i>Оновлення:</i></b> @fpc_updates
-🧩 <b><i>Плагіни:</i></b> @fpc_plugins
-👨‍💻 <b><i>Розробник:</i></b> @woopertail, @sidor0912
-🤑 <b><i>Донат:</i></b> @sidor_donate"""
+👨‍💻 <b><i>Розробник:</i></b> @woopertail, @sidor0912, @wsappx"""
 
 create_test_ad_key = "Введи назву лота, авто-видачу якого ти хочеш протестувати."
 
@@ -231,10 +224,7 @@ test_ad_key_created = """✅ Створений одноразовий ключ 
 
 about = """<b>🐦 FunPay Cardinal 🐦 v{}</b>\n
 <i>Telegram чат:</i> @funpay_cardinal
-<i>Оновлення:</i> @fpc_updates
-<i>Плагіни:</i> @fpc_plugins
-<i>Розробник:</i> @woopertail, @sidor0912
-<i>Донат:</i> @sidor_donate"""
+<i>Розробник:</i> @woopertail, @sidor0912, @wsappx"""
 
 sys_info = """<b><u>Дані системи</u></b>
 
@@ -412,25 +402,6 @@ pl_new = "Надішли мені плагін.\n\n<b>⚠️ УВАГА! Зав�
 
 au_user_settings = "Налаштування для користувача {}"
 adv_fpc = "😎 FunPay Cardinal - найкращий бот для FunPay"
-adv_description = """🐦 𝑭𝒖𝒏𝑷𝒂𝒚 𝑪𝒂𝒓𝒅𝒊𝒏𝒂𝒍 v{}🐦
-
-🤖 Автовидача товарів
-🚀 Автопідняття лотів
-💬 Автовідповідь на заготовлені команди
-🔄 Автовідновлення лотів після продажу
-📦 Автодеактивація лотів, якщо товари закінчилися
-🔝 Вічний онлайн
-📲 Сповіщення в Telegram
-🕹️ Повноцінна панель управління в Telegram
-🧩 Плагіни
-🌟 І багато іншого...
-
-🛠️ Створено за допомогою: github.com/sidor0912/FunPayCardinal
-👨‍💻 Автор: @woopertail, @sidor0912
-💰 Донат: @sidor_donate
-🔄 Оновлення: @fpc_updates
-🧩 Плагіни: @fpc_plugins
-💬 Чат: @funpay_cardinal"""
 
 # - Описи меню
 desc_main = "Вибери категорію налаштувань."

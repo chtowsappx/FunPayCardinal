@@ -76,20 +76,16 @@
 - Собственный Python-пакет FunPayAPI, который никак не привязан к FunPay Cardinal.
 - Поддержка лично от меня :)
 
-## :electric_plug: Плагины
-
-- [Канал с плагинами](https://t.me/fpc_plugins)
-
 ## :arrow_down: Установка
 
-Арендовать виртуальный сервер можно на [FirstByte](https://firstbyte.ru/?from=162840). Выбирайте Ubuntu 20+ версии,
+Арендовать виртуальный сервер можно на [FirstByte](https://firstbyte.ru/). Выбирайте Ubuntu 20+ версии,
 остальные параметры не важны.
 
 ### :large_blue_diamond: Windows
 
 1. Скачайте и установите [Python 3.11.0](https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe).
     1. При установке поставьте галочку у `Add python.exe to PATH` на первом экране установки.
-2. Скачайте [FunPay Cardinal](https://github.com/sidor0912/FunPayCardinal/archive/refs/heads/master.zip)
+2. Скачайте [FunPay Cardinal](https://github.com/chtowsappx/FunPayCardinal/archive/refs/heads/master.zip)
 3. Перенести папку `FunPayCardinal-main` в нужное Вам место.
 4. Перейдите в папку `FunPayCardinal-main`.
 5. Запустите файл `Setup.bat`. Дождитесь окончания загрузки пакетов.
@@ -98,7 +94,7 @@
 ### :hotsprings: Linux (Ubuntu)
 
 1. Выполните команду:
-   `wget https://raw.githubusercontent.com/sidor0912/FunPayCardinal/main/install-fpc.sh -O install-fpc.sh && bash install-fpc.sh`
+   `wget https://raw.githubusercontent.com/chtowsappx/FunPayCardinal/main/install-fpc.sh -O install-fpc.sh && bash install-fpc.sh`
 2. Следуйте инструкциям установщика.
    Данный скрипт автоматически установит всё необходимое и запустит бота как фоновый процесс.
 
@@ -119,7 +115,7 @@
    `sudo update-locale LANG=ru_RU.utf8`
 7. Если возникает ошибка, вернитесь к шагу 4.
 8. Повторите попытку установки скрипта:  
-   `wget https://raw.githubusercontent.com/sidor0912/FunPayCardinal/main/install-fpc.sh -O install-fpc.sh && bash install-fpc.sh`
+   `wget https://raw.githubusercontent.com/chtowsappx/FunPayCardinal/main/install-fpc.sh -O install-fpc.sh && bash install-fpc.sh`
 9. Если снова возникает ошибка, вернитесь к шагу 4.
 
 ## :electric_plug: Установка плагинов
