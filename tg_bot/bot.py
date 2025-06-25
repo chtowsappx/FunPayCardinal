@@ -72,7 +72,6 @@ class TGBot:
             "menu": "cmd_menu",
             "profile": "cmd_profile",
             "restart": "cmd_restart",
-            "check_updates": "cmd_check_updates",
             "golden_key": "cmd_golden_key",
             "ban": "cmd_ban",
             "unban": "cmd_unban",
@@ -916,6 +915,18 @@ class TGBot:
                       self.cardinal.MAIN_CFG[section][option]))
         self.bot.answer_callback_query(c.id)
 
+    def switch_chat_notification(self, c: CallbackQuery):
+        split = c.data.split(":")
+        chat_id, notification_type = int(split[1]), split[2]
+
+        result = self.toggle_notification(chat_id, notification_type)
+        logger.info(_("log_notification_switched", c.from_user.username, c.from_user.id,
+                      notification_type, c.message.chat.id, result))
+        keyboard = kb.notifications_settings
+        self.bot.edit_message_reply_markup(c.message.chat.id, c.message.id,
+                                           reply_markup=keyboard(self.cardinal, c.message.chat.id))
+        self.bot.answer_callback_query(c.id)
+
     def open_settings_section(self, c: CallbackQuery):
         """
         Открывает выбранную категорию настроек.
@@ -1059,6 +1070,7 @@ class TGBot:
         self.cbq_handler(self.open_cp2, lambda c: c.data == CBT.MAIN2)
         self.cbq_handler(self.open_settings_section, lambda c: c.data.startswith(f"{CBT.CATEGORY}:"))
         self.cbq_handler(self.switch_param, lambda c: c.data.startswith(f"{CBT.SWITCH}:"))
+        self.cbq_handler(self.switch_chat_notification, lambda c: c.data.startswith(f"{CBT.SWITCH_TG_NOTIFICATIONS}:"))
         self.cbq_handler(self.power_off, lambda c: c.data.startswith(f"{CBT.SHUT_DOWN}:"))
         self.cbq_handler(self.cancel_power_off, lambda c: c.data == CBT.CANCEL_SHUTTING_DOWN)
         self.cbq_handler(self.cancel_action, lambda c: c.data == CBT.CLEAR_STATE)
