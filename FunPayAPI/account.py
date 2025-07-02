@@ -128,8 +128,8 @@ class Account:
         """Старое значение self.__bot_character, для корректной маркировки отправки ботом старых сообщений"""
 
     def method(self, request_method: Literal["post", "get"], api_method: str, headers: dict, payload: Any,
-               exclude_phpsessid: bool = False, raise_not_200: bool = False,
-               locale: Literal["ru", "en", "uk"] | None = None) -> requests.Response:
+                exclude_phpsessid: bool = False, raise_not_200: bool = False,
+                locale: Literal["ru", "en", "uk"] | None = None, max_retries: int = 3, backoff_factor: float = 10.0) -> requests.Response:
         """
         Отправляет запрос к FunPay. Добавляет в заголовки запроса user_agent и куки.
 
@@ -186,26 +186,34 @@ class Account:
         locale = locale or self.__set_locale
         if request_method == "get" and locale and locale != self.locale:
             link += f'{"&" if "?" in link else "?"}setlocale={locale}'
-        for i in range(10):
-            response = getattr(requests, request_method)(link, headers=headers, data=payload,
-                                                         timeout=self.requests_timeout,
-                                                         proxies=self.proxy or {}, allow_redirects=False)
-            if not (300 <= response.status_code < 400) or 'Location' not in response.headers:
-                break
-            link = response.headers['Location']
-            update_locale(link)
-        else:
-            response = getattr(requests, request_method)(link, headers=headers, data=payload,
+        for attempt in range(max_retries + 1):
+            for i in range(10):
+                response = getattr(requests, request_method)(link, headers=headers, data=payload,
+                                                            timeout=self.requests_timeout,
+                                                            proxies=self.proxy or {}, allow_redirects=False)
+                if not (300 <= response.status_code < 400) or 'Location' not in response.headers:
+                    break
+                link = response.headers['Location']
+                update_locale(link)
+            else:
+                response = getattr(requests, request_method)(link, headers=headers, data=payload,
                                                          timeout=self.requests_timeout,
                                                          proxies=self.proxy or {})
-        if response.status_code == 429:
-            self.last_429_err_time = time.time()
+            if response.status_code == 429:
+                self.last_429_err_time = time.time()
+                if attempt < max_retries:
+                    sleep_time = backoff_factor
+                    time.sleep(sleep_time)
+                    continue
+                raise exceptions.RequestFailedError(response)
 
-        if response.status_code == 403:
-            raise exceptions.UnauthorizedError(response)
-        elif response.status_code != 200 and raise_not_200:
-            raise exceptions.RequestFailedError(response)
-        return response
+            if response.status_code == 403:
+                raise exceptions.UnauthorizedError(response)
+            elif response.status_code != 200 and raise_not_200:
+                raise exceptions.RequestFailedError(response)
+            return response
+    
+        raise exceptions.RequestFailedError(response)
 
     def get(self, update_phpsessid: bool = True) -> Account:
         """
