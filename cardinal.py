@@ -482,7 +482,7 @@ class Cardinal(object):
                     break
                 except Exception as ex:
                     if "Нельзя отправлять ссылки слишком часто" or "Нельзя слишком часто отправлять сообщения разным пользователям." in str(ex):
-                        logger.info(_("crd_msg_link_delay", 3, chat_id))
+                        logger.info(_("crd_msg_link_delay", chat_id, 3))
                         time.sleep(3)
                         continue
                     else:
