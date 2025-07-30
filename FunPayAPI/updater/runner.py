@@ -124,7 +124,6 @@ class Runner:
 
         response = self.account.method("post", "runner/", headers, payload, raise_not_200=True)
         json_response = response.json()
-        logger.debug(f"Получены данные о событиях: {json_response}")
         return json_response
 
     def parse_updates(self, updates: dict) -> list[InitialChatEvent | ChatsListChangedEvent |
@@ -451,6 +450,7 @@ class Runner:
         """
         events = []
         while True:
+            start_time = time.time()
             try:
                 self.__interlocutor_ids = set([event.message.interlocutor_id for event in events
                                                if event.type == EventTypes.NEW_MESSAGE])
@@ -476,4 +476,10 @@ class Runner:
                     logger.error("Произошла ошибка при получении событий. "
                                  "(ничего страшного, если это сообщение появляется нечасто).")
                     logger.debug("TRACEBACK", exc_info=True)
-            time.sleep(requests_delay)
+            iteration_time = time.time() - start_time
+            if time.time() - self.account.last_429_err_time > 60:
+                rt = requests_delay - iteration_time
+                if rt > 0:
+                    time.sleep(rt)
+            else:
+                time.sleep(requests_delay)
