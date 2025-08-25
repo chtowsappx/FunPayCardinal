@@ -1147,7 +1147,16 @@ class Account:
         support = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["поддержка", "support", "підтримка"])) if user_badges else False
         arbitration = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["арбитраж", "арбітраж", "arbitration"])) if user_badges else False
         moderation = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["модерация", "модерація", "moderation"])) if user_badges else False
-        reviews = int(re.search(r"\d+", reviews_div.get_text()).group(0)) if (reviews_div := parser.find("div", class_="text-mini text-light mb5")) else 0
+        reviews_div = parser.find("div", class_="text-mini text-light mb5")
+        if reviews_div:
+            text = reviews_div.get_text(strip=True)
+            m = re.search(r"\d[\d\s\u00A0]*", text)
+            if m:
+                reviews = int(m.group(0).replace(" ", "").replace("\u00A0", ""))
+            else:
+                reviews = 0
+        else:
+            reviews = 0
         rating = parser.find("span", class_="big")
         rating = rating.text if rating else "0"
         lots_count = len(parser.find_all("a", {"class": "tc-item"}))
