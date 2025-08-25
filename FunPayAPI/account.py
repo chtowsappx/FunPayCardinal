@@ -18,6 +18,7 @@ import string
 import json
 import time
 import re
+from mimetypes import guess_type
 
 from . import types
 from .common import exceptions, utils, enums
@@ -652,6 +653,51 @@ class Account:
             raise exceptions.ImageUploadError(response, None)
         return int(document_id)
 
+    def change_avatar(self, image: str | IO[bytes]) -> str | None:
+        """
+        Меняет аватар профиля.
+
+        :param image: путь до файла картинки или байты.
+        :return: URL новой аватарки (если вернулся в ответе) или None.
+        """
+        if not self.is_initiated:
+            raise exceptions.AccountNotInitiatedError()
+
+        if isinstance(image, str):
+            with open(image, "rb") as f:
+                img_bytes = f.read()
+            mime = guess_type(image)[0] or "image/png"
+            filename = image.split("/")[-1] or "avatar.png"
+        else:
+            img_bytes = image
+            mime = "image/png"
+            filename = "avatar.png"
+
+        fields = {
+            "file": (filename, img_bytes, mime),
+        }
+        boundary = '----WebKitFormBoundary' + ''.join(random.sample(string.ascii_letters + string.digits, 16))
+        m = MultipartEncoder(fields=fields, boundary=boundary)
+
+        headers = {
+            "accept": "*/*",
+            "x-requested-with": "XMLHttpRequest",
+            "content-type": m.content_type,
+        }
+
+        response = self.method("post", "file/avatar", headers, m)
+
+        if response.status_code == 400:
+            try:
+                msg = response.json().get("msg")
+                raise exceptions.ImageUploadError(response, msg)
+            except requests.exceptions.JSONDecodeError:
+                raise exceptions.ImageUploadError(response, None)
+        elif response.status_code != 200:
+            raise exceptions.RequestFailedError(response)
+
+        return True
+
     def send_message(self, chat_id: int | str, text: Optional[str] = None, chat_name: Optional[str] = None,
                      interlocutor_id: Optional[int] = None,
                      image_id: Optional[int] = None, add_to_ignore_list: bool = True,
@@ -1101,10 +1147,9 @@ class Account:
         support = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["поддержка", "support", "підтримка"])) if user_badges else False
         arbitration = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["арбитраж", "арбітраж", "arbitration"])) if user_badges else False
         moderation = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["модерация", "модерація", "moderation"])) if user_badges else False
-        rating = parser.find("div", class_="rating-full-count")
-        rating = re.search(r"\d+", rating.text).group() if rating else "0"
-        reviews = parser.find("span", class_="big")
-        reviews = reviews.text if reviews else "0"
+        reviews = int(re.search(r"\d+", reviews_div.get_text()).group(0)) if (reviews_div := parser.find("div", class_="text-mini text-light mb5")) else 0
+        rating = parser.find("span", class_="big")
+        rating = rating.text if rating else "0"
         lots_count = len(parser.find_all("a", {"class": "tc-item"}))
         user_obj = types.UserProfile(user_id, username, avatar_link, "Онлайн" in user_status or "Online" in user_status,
                                      banned, activation, reg_data, support, arbitration, moderation, rating, reviews, lots_count, html_response)
