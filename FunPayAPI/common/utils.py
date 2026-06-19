@@ -5,6 +5,7 @@
 import string
 import random
 import re
+from datetime import datetime, timedelta, timezone
 from .enums import Currency
 
 MONTHS = {
@@ -80,6 +81,30 @@ def parse_currency(s: str) -> Currency:
             "€": Currency.EUR,
             "$": Currency.USD,
             "¤": Currency.RUB}.get(s, Currency.UNKNOWN)
+
+
+def parse_funpay_datetime(date_text: str) -> datetime:
+    """Парсит дату/время из текста FunPay."""
+    now = datetime.now(tz=timezone(timedelta(hours=3)))
+    if any(today in date_text for today in ("сегодня", "сьогодні", "today")):
+        h, m = date_text.split(", ")[1].split(":")
+        return datetime(now.year, now.month, now.day, int(h), int(m))
+    elif any(yesterday in date_text for yesterday in ("вчера", "вчора", "yesterday")):
+        h, m = date_text.split(", ")[1].split(":")
+        temp = now - timedelta(days=1)
+        return datetime(temp.year, temp.month, temp.day, int(h), int(m))
+    elif date_text.count(" ") == 2:
+        split = date_text.split(", ")
+        day, month = split[0].split()
+        day, month = int(day), MONTHS[month]
+        h, m = split[1].split(":")
+        return datetime(now.year, month, day, int(h), int(m))
+    else:
+        split = date_text.split(", ")
+        day, month, year = split[0].split()
+        day, month, year = int(day), MONTHS[month], int(year)
+        h, m = split[1].split(":")
+        return datetime(year, month, day, int(h), int(m))
 
 
 class RegularExpressions(object):
