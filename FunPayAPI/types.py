@@ -668,6 +668,14 @@ class SubCategory:
         """Приватная ссылка на список лотов подкатегории (для редактирования лотов)."""
 
 
+class LotField:
+    def __init__(self, id: str, value: str | dict, name: str = None, field_type_id: str | None = None):
+        self.id: str = id
+        self.value: str | dict = value
+        self.name: str = name
+        self.field_type_id: str = field_type_id
+
+
 class LotFields:
     """
     Класс, описывающий поля лота со страницы редактирования лота.
