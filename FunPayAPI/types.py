@@ -974,6 +974,7 @@ class LotShortcut:
     """
 
     def __init__(self, id_: int | str, server: str | None,
+                 side: str | None,
                  description: str | None, amount: int | None, price: float, currency: Currency,
                  subcategory: SubCategory | None,
                  seller: SellerShortcut | None, auto: bool, promo: bool | None, attributes: dict[str, int | str] | None,
@@ -984,6 +985,8 @@ class LotShortcut:
         """ID лота."""
         self.server: str | None = server
         """Название сервера (если указан)."""
+        self.side: str | None = side
+        """Сторона (например, Buy/Sell)."""
         self.description: str | None = description
         """Краткое описание (название) лота."""
         self.title: str | None = description
@@ -1038,6 +1041,7 @@ class MyLotShortcut:
     """
 
     def __init__(self, id_: int | str, server: str | None,
+                 side: str | None,
                  description: str | None, amount: int | None, price: float, currency: Currency,
                  subcategory: SubCategory | None, auto: bool, active: bool,
                  html: str):
@@ -1047,6 +1051,8 @@ class MyLotShortcut:
         """ID лота."""
         self.server: str | None = server
         """Название сервера (если указан)."""
+        self.side: str | None = side
+        """Сторона (например, Buy/Sell)."""
         self.description: str | None = description
         """Краткое описание (название) лота."""
         self.title: str | None = description
