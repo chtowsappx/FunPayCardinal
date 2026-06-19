@@ -95,6 +95,10 @@ class OrderStatuses(Enum):
     """Заказ закрыт."""
     REFUNDED = 2
     """Средства по заказу возвращены."""
+    PARTIALLY_REFUNDED = 3
+    """Часть средств по заказу возвращена."""
+    UNPAID = 5
+    """Заказ не оплачен."""
 
 
 class SubCategoryTypes(Enum):
