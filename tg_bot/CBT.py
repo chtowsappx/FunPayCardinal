@@ -93,13 +93,19 @@ command_index: int - числовой индекс команды.
 offset: int - смещение списка команд.
 """
 
-SWITCH_CMD_NOTIFICATION = "9"
+SWITCH_CMD_SETTING = "9"
 """
-Callback для вкл/выкл Telegram уведомления об использовании команды.
-Использование: CBT.SWITCH_CMD_NOTIFICATION:command_index:offset
+Callback для вкл/выкл настройки команды автоответчика.
+Использование: CBT.SWITCH_CMD_SETTING:command_index:offset:setting
 
 command_index: int - числовой индекс команды.
 offset: int - смещение списка команд.
+setting: str - название настройки (enabled / telegramNotification).
+"""
+
+UPLOAD_BACKUP = "upload_backup"
+"""
+Callback для загрузки бэкапа.
 """
 
 DEL_CMD = "10"
@@ -693,4 +699,13 @@ Callback для удаления прокси.
 
 offset: int - смещение списка прокси.
 proxy_id: int - ID proxy
+"""
+
+PIN_PLUGIN = "73"
+"""
+Callback для закрепления / открепления плагина.
+Использование: CBT.PIN_PLUGIN:UUID:offset
+
+UUID: str - UUID плагина.
+offset: int - смещение списка плагинов.
 """

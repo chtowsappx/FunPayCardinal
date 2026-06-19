@@ -9,7 +9,7 @@ import os
 from Utils.exceptions import (ParamNotFoundError, EmptyValueError, ValueNotValidError, SectionNotFoundError,
                               ConfigParseError, ProductsFileNotFoundError, NoProductVarError,
                               SubCommandAlreadyExists, DuplicateSectionErrorWrapper)
-from Utils.cardinal_tools import hash_password
+from Utils.cardinal_tools import hash_password, build_proxy
 
 
 def check_param(param_name: str, section: SectionProxy, valid_values: list[str | None] | None = None,
@@ -85,7 +85,8 @@ def load_main_config(config_path: str):
             "enabled": ["0", "1"],
             "token": "any+empty",
             "secretKeyHash": "any",
-            "blockLogin": ["0", "1"]
+            "blockLogin": ["0", "1"],
+            "proxy": "any+empty"
         },
 
         "BlockList": {
@@ -108,6 +109,7 @@ def load_main_config(config_path: str):
 
         "Greetings": {
             "ignoreSystemMessages": ["0", "1"],
+            "onlyNewChats": ["0", "1"],
             "sendGreetings": ["0", "1"],
             "greetingsText": "any",
             "greetingsCooldown": "any"
@@ -134,10 +136,7 @@ def load_main_config(config_path: str):
 
         "Proxy": {
             "enable": ["0", "1"],
-            "ip": "any+empty",
-            "port": "any+empty",
-            "login": "any+empty",
-            "password": "any+empty",
+            "proxy": "any+empty",
             "check": ["0", "1"]
         },
 
@@ -155,6 +154,23 @@ def load_main_config(config_path: str):
         # UPDATE
         if section_name == "Greetings" and "cacheInitChats" in config[section_name]:
             config.remove_option(section_name, "cacheInitChats")
+            with open("configs/_main.cfg", "w", encoding="utf-8") as f:
+                config.write(f)
+        if section_name == "Proxy" and "ip" in config[section_name]:
+            # Миграция со старого формата ip/port/login/password на новый proxy
+            ip = config[section_name].get("ip", "")
+            port = config[section_name].get("port", "")
+            login = config[section_name].get("login", "")
+            password = config[section_name].get("password", "")
+            if ip and port:
+                proxy_str = build_proxy("http", login, password, ip, port)
+            else:
+                proxy_str = ""
+            config.set("Proxy", "proxy", proxy_str)
+            config.remove_option("Proxy", "ip")
+            config.remove_option("Proxy", "port")
+            config.remove_option("Proxy", "login")
+            config.remove_option("Proxy", "password")
             with open("configs/_main.cfg", "w", encoding="utf-8") as f:
                 config.write(f)
         # END OF UPDATE
@@ -215,6 +231,21 @@ def load_main_config(config_path: str):
                 config.set(section_name, "locale", "ru")
                 with open("configs/_main.cfg", "w", encoding="utf-8") as f:
                     config.write(f)
+            elif section_name == "Greetings" and param_name == "onlyNewChats" and \
+                    param_name not in config[section_name]:
+                config.set("Greetings", "onlyNewChats", "0")
+                with open("configs/_main.cfg", "w", encoding="utf-8") as f:
+                    config.write(f)
+            elif section_name == "Telegram" and param_name == "proxy" and \
+                    param_name not in config[section_name]:
+                config.set("Telegram", "proxy", "")
+                with open("configs/_main.cfg", "w", encoding="utf-8") as f:
+                    config.write(f)
+            elif section_name == "Proxy" and param_name == "proxy" and \
+                    param_name not in config[section_name]:
+                config.set("Proxy", "proxy", "")
+                with open("configs/_main.cfg", "w", encoding="utf-8") as f:
+                    config.write(f)
 
             # END OF UPDATE
 
@@ -250,6 +281,8 @@ def load_auto_response_config(config_path: str):
             check_param("response", config[command])
             check_param("telegramNotification", config[command], valid_values=["0", "1"], raise_if_not_exists=False)
             check_param("notificationText", config[command], raise_if_not_exists=False)
+            if "enabled" not in config[command]:
+                config.set(command, "enabled", "1")
         except (ParamNotFoundError, EmptyValueError, ValueNotValidError) as e:
             raise ConfigParseError(config_path, command, e)
 
@@ -280,7 +313,11 @@ def load_raw_auto_response_config(config_path: str):
 
     :return: спарсеный конфиг команд.
     """
-    return create_config_obj(config_path)
+    config = create_config_obj(config_path)
+    for command in config.sections():
+        if "enabled" not in config[command]:
+            config.set(command, "enabled", "1")
+    return config
 
 
 def load_auto_delivery_config(config_path: str):

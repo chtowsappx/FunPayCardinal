@@ -28,6 +28,7 @@ import handlers
 from locales.localizer import Localizer
 from FunPayAPI import utils as fp_utils
 from Utils import cardinal_tools
+from Utils.cardinal_tools import validate_proxy, build_proxy
 import tg_bot.bot
 
 from threading import Thread
@@ -51,7 +52,8 @@ class PluginData:
     """
 
     def __init__(self, name: str, version: str, desc: str, credentials: str, uuid: str,
-                 path: str, plugin: ModuleType, settings_page: bool, delete_handler: Callable | None, enabled: bool):
+                 path: str, plugin: ModuleType, settings_page: bool, delete_handler: Callable | None, enabled: bool,
+                 pinned: bool = False):
         """
         :param name: название плагина.
         :param version: версия плагина.
@@ -63,6 +65,7 @@ class PluginData:
         :param settings_page: есть ли страница настроек у плагина.
         :param delete_handler: хэндлер, привязанный к удалению плагина.
         :param enabled: включен ли плагин.
+        :param pinned: закреплен ли плагин.
         """
         self.name = name
         self.version = version
@@ -76,6 +79,7 @@ class PluginData:
         self.commands = {}
         self.delete_handler = delete_handler
         self.enabled = enabled
+        self.pinned = pinned
 
 
 class Cardinal(object):
@@ -102,15 +106,14 @@ class Cardinal(object):
         self.proxy = {}
         self.proxy_dict = cardinal_tools.load_proxy_dict()  # прокси {0: "login:password@ip:port", 1: "ip:port"...}
         if self.MAIN_CFG["Proxy"].getboolean("enable"):
-            if self.MAIN_CFG["Proxy"]["ip"] and self.MAIN_CFG["Proxy"]["port"].isnumeric():
+            if self.MAIN_CFG["Proxy"]["proxy"]:
                 logger.info(_("crd_proxy_detected"))
 
-                ip, port = self.MAIN_CFG["Proxy"]["ip"], self.MAIN_CFG["Proxy"]["port"]
-                login, password = self.MAIN_CFG["Proxy"]["login"], self.MAIN_CFG["Proxy"]["password"]
-                proxy_str = f"{f'{login}:{password}@' if login and password else ''}{ip}:{port}"
+                scheme, login, password, ip, port = validate_proxy(self.MAIN_CFG["Proxy"]["proxy"])
+                proxy_str = build_proxy(scheme, login, password, ip, port)
                 self.proxy = {
-                    "http": f"http://{proxy_str}",
-                    "https": f"http://{proxy_str}"
+                    "http": proxy_str,
+                    "https": proxy_str
                 }
 
                 if proxy_str not in self.proxy_dict.values():
@@ -145,9 +148,13 @@ class Cardinal(object):
         self.profile_last_tag: str | None = None
         # Тег последнего event'а, после которого обновлялось состояние лотов.
         self.last_state_change_tag: str | None = None
+        self.last_profile_refresh_event_tag: str | None = None
+        self.last_greeting_chat_id_threshold_change_tag: str | None = None
+        self.greeting_threshold_chat_ids = set()
         self.blacklist = cardinal_tools.load_blacklist()  # ЧС.
         self.old_users = cardinal_tools.load_old_users(
             float(self.MAIN_CFG["Greetings"]["greetingsCooldown"]))  # Уже написавшие пользователи.
+        self.greeting_chat_id_threshold = max(self.old_users.keys(), default=0)
 
         # Хэндлеры
         self.pre_init_handlers = []
@@ -195,6 +202,7 @@ class Cardinal(object):
 
         self.plugins: dict[str, PluginData] = {}
         self.disabled_plugins = cardinal_tools.load_disabled_plugins()
+        self.pinned_plugins = cardinal_tools.load_pinned_plugins()
 
     def __init_account(self) -> None:
         """
@@ -295,7 +303,7 @@ class Cardinal(object):
         # Время следующего вызова функции (по умолчанию - бесконечность).
         next_call = float("inf")
 
-        for subcat in sorted(list(self.profile.get_sorted_lots(2).keys()), key=lambda x: x.category.position):
+        for subcat in sorted(list(self.curr_profile.get_sorted_lots(2).keys()), key=lambda x: x.category.position):
             if subcat.type is SubCategoryTypes.CURRENCY:
                 continue
             # Если id категории текущей подкатегории уже находится в self.game_ids, но время поднятия подкатегорий
@@ -466,7 +474,7 @@ class Cardinal(object):
                                                         interlocutor_id or self.account.interlocutor_ids.get(chat_id),
                                                         None, not self.old_mode_enabled,
                                                         self.old_mode_enabled,
-                                                        self.keep_sent_messages_unread)
+                                                        self.keep_sent_messages_unread and self.old_mode_enabled)
                         result.append(msg)
                         logger.info(_("crd_msg_sent", chat_id))
                     elif isinstance(entity, int):
@@ -474,7 +482,7 @@ class Cardinal(object):
                                                       interlocutor_id or self.account.interlocutor_ids.get(chat_id),
                                                       not self.old_mode_enabled,
                                                       self.old_mode_enabled,
-                                                      self.keep_sent_messages_unread)
+                                                      self.keep_sent_messages_unread and self.old_mode_enabled)
                         result.append(msg)
                         logger.info(_("crd_msg_sent", chat_id))
                     elif isinstance(entity, float):
@@ -595,7 +603,7 @@ class Cardinal(object):
         """
         Запускает бесконечный цикл поднятия категорий (если autoRaise в _main.cfg == 1)
         """
-        if not self.profile.get_lots():
+        if not self.curr_profile.get_lots():
             logger.info(_("crd_raise_loop_not_started"))
             return
 
@@ -663,6 +671,7 @@ class Cardinal(object):
 
         Thread(target=self.lots_raise_loop, daemon=True).start()
         Thread(target=self.update_session_loop, daemon=True).start()
+        Thread(target=self.runner.loop, daemon=True).start()
         self.process_events()
 
     def start(self):
@@ -798,7 +807,8 @@ class Cardinal(object):
 
             plugin_data = PluginData(data["NAME"], data["VERSION"], data["DESCRIPTION"], data["CREDITS"], data["UUID"],
                                      f"plugins/{file}", plugin, data["SETTINGS_PAGE"], data["BIND_TO_DELETE"],
-                                     False if data["UUID"] in self.disabled_plugins else True)
+                                     False if data["UUID"] in self.disabled_plugins else True,
+                                     data["UUID"] in self.pinned_plugins)
 
             self.plugins[data["UUID"]] = plugin_data
 
@@ -836,7 +846,8 @@ class Cardinal(object):
         """
         for func in handlers_list:
             try:
-                if getattr(func, "plugin_uuid") is None or self.plugins[getattr(func, "plugin_uuid")].enabled:
+                plugin_uuid = getattr(func, "plugin_uuid")
+                if plugin_uuid is None or (plugin_uuid in self.plugins and self.plugins[plugin_uuid].enabled):
                     func(*args)
             except Exception as ex:
                 text = _("crd_handler_err")
@@ -878,6 +889,18 @@ class Cardinal(object):
         elif not self.plugins[uuid].enabled and uuid not in self.disabled_plugins:
             self.disabled_plugins.append(uuid)
         cardinal_tools.cache_disabled_plugins(self.disabled_plugins)
+
+    def pin_plugin(self, uuid):
+        """
+        Закрепляет / открепляет плагин.
+        :param uuid: UUID плагина.
+        """
+        self.plugins[uuid].pinned = not self.plugins[uuid].pinned
+        if self.plugins[uuid].pinned and uuid not in self.pinned_plugins:
+            self.pinned_plugins.append(uuid)
+        elif not self.plugins[uuid].pinned and uuid in self.pinned_plugins:
+            self.pinned_plugins.remove(uuid)
+        cardinal_tools.cache_pinned_plugins(self.pinned_plugins)
 
     # Настройки
     @property

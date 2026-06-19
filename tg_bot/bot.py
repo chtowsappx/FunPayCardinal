@@ -26,7 +26,7 @@ import logging
 from telebot.types import InlineKeyboardMarkup as K, InlineKeyboardButton as B, Message, CallbackQuery, BotCommand, \
     InputFile
 from tg_bot import utils, static_keyboards as skb, keyboards as kb, CBT
-from Utils import cardinal_tools
+from Utils import cardinal_tools, updater
 from locales.localizer import Localizer
 
 logger = logging.getLogger("TGBot")
@@ -38,6 +38,9 @@ telebot.apihelper.ENABLE_MIDDLEWARE = True
 class TGBot:
     def __init__(self, cardinal: Cardinal):
         self.cardinal = cardinal
+        if cardinal.MAIN_CFG["Telegram"]["proxy"]:
+            telebot.apihelper.proxy = {"https": cardinal.MAIN_CFG["Telegram"]["proxy"],
+                                       "http": cardinal.MAIN_CFG["Telegram"]["proxy"]}
         self.bot = telebot.TeleBot(self.cardinal.MAIN_CFG["Telegram"]["token"], parse_mode="HTML",
                                    allow_sending_without_reply=True, num_threads=5)
 
@@ -85,6 +88,7 @@ class TGBot:
             "sys": "cmd_sys",
             "get_backup": "cmd_get_backup",
             "create_backup": "cmd_create_backup",
+            "upload_backup": "cmd_upload_backup",
             "del_logs": "cmd_del_logs",
             "power_off": "cmd_power_off",
             "watermark": "cmd_watermark",

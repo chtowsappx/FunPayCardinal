@@ -68,6 +68,14 @@ def save_init_chats_handler(c: Cardinal, e: InitialChatEvent):
         cardinal_tools.cache_old_users(c.old_users)
 
 
+def update_threshold_on_initial_chat(c: Cardinal, e: InitialChatEvent):
+    """
+    Обновляет пороговое значение для определения новых чатов.
+    """
+    if e.chat.id > c.greeting_chat_id_threshold:
+        c.greeting_chat_id_threshold = e.chat.id
+
+
 # NEW MESSAGE / LAST CHAT MESSAGE CHANGED
 def old_log_msg_handler(c: Cardinal, e: LastChatMessageChangedEvent):
     """
@@ -106,6 +114,25 @@ def log_msg_handler(c: Cardinal, e: NewMessageEvent):
     MSG_LOG_LAST_STACK_ID = e.stack.id()
 
 
+def update_threshold_on_last_message_change(c: Cardinal, e: LastChatMessageChangedEvent | NewMessageEvent):
+    """
+    Обновляет пороговое значение для определения новых чатов.
+    """
+    # Должно выполняться после greetings_handler для корректной обработки
+    # c.greeting_threshold_chat_ids (чтобы не спамило приветствиями)
+    if not c.old_mode_enabled:
+        if isinstance(e, LastChatMessageChangedEvent):
+            return
+        chat_id = e.message.chat_id
+    else:
+        chat_id = e.chat.id
+    if e.runner_tag != c.last_greeting_chat_id_threshold_change_tag:
+        c.greeting_chat_id_threshold = max([c.greeting_chat_id_threshold, *c.greeting_threshold_chat_ids])
+        c.greeting_threshold_chat_ids = set()
+        c.last_greeting_chat_id_threshold_change_tag = e.runner_tag
+    c.greeting_threshold_chat_ids.add(chat_id)
+
+
 def greetings_handler(c: Cardinal, e: NewMessageEvent | LastChatMessageChangedEvent):
     """
     Отправляет приветственное сообщение.
@@ -120,8 +147,11 @@ def greetings_handler(c: Cardinal, e: NewMessageEvent | LastChatMessageChangedEv
     else:
         obj = e.chat
         chat_id, chat_name, mtype, its_me, badge = obj.id, obj.name, obj.last_message_type, not obj.unread, None
-    if any([time.time() - c.old_users.get(chat_id, 0) < float(
-            c.MAIN_CFG["Greetings"]["greetingsCooldown"]) * 24 * 60 * 60,
+    is_old_chat = (chat_id <= c.greeting_chat_id_threshold or chat_id in c.greeting_threshold_chat_ids)
+
+    if any([c.MAIN_CFG["Greetings"].getboolean("onlyNewChats") and is_old_chat,
+            time.time() - c.old_users.get(chat_id, 0) < float(
+                c.MAIN_CFG["Greetings"]["greetingsCooldown"]) * 24 * 60 * 60,
             its_me, mtype in (MessageTypes.DEAR_VENDORS, MessageTypes.ORDER_CONFIRMED_BY_ADMIN), badge is not None,
             (mtype is not MessageTypes.NON_SYSTEM and c.MAIN_CFG["Greetings"].getboolean("ignoreSystemMessages"))]):
         return
@@ -135,6 +165,9 @@ def add_old_user_handler(c: Cardinal, e: NewMessageEvent | LastChatMessageChange
     """
     Добавляет пользователя в список написавших.
     """
+    if not c.MAIN_CFG["Greetings"].getboolean("sendGreetings") or c.MAIN_CFG["Greetings"].getboolean("onlyNewChats"):
+        return
+
     if not c.old_mode_enabled:
         if isinstance(e, LastChatMessageChangedEvent):
             return
@@ -142,8 +175,9 @@ def add_old_user_handler(c: Cardinal, e: NewMessageEvent | LastChatMessageChange
     else:
         chat_id, mtype = e.chat.id, e.chat.last_message_type
 
-    if not c.MAIN_CFG["Greetings"].getboolean("sendGreetings") or mtype == MessageTypes.DEAR_VENDORS:
+    if mtype == MessageTypes.DEAR_VENDORS:
         return
+
     c.old_users[chat_id] = int(time.time())
     cardinal_tools.cache_old_users(c.old_users)
 
@@ -165,6 +199,8 @@ def send_response_handler(c: Cardinal, e: NewMessageEvent | LastChatMessageChang
 
     mtext = mtext.replace("\n", "")
     if any([c.bl_response_enabled and username in c.blacklist, (command := mtext.strip().lower()) not in c.AR_CFG]):
+        return
+    if not c.AR_CFG[command].getboolean("enabled"):
         return
 
     logger.info(_("log_new_cmd", command, chat_name, chat_id))
@@ -374,7 +410,8 @@ def send_command_notification_handler(c: Cardinal, e: NewMessageEvent | LastChat
     if c.bl_cmd_notification_enabled and username in c.blacklist:
         return
     command = message_text.strip().lower()
-    if command not in c.AR_CFG or not c.AR_CFG[command].getboolean("telegramNotification"):
+    if (command not in c.AR_CFG or not c.AR_CFG[command].getboolean("telegramNotification")
+            or not c.AR_CFG[command].getboolean("enabled")):
         return
 
     if not c.AR_CFG[command].get("notificationText"):
@@ -820,9 +857,10 @@ def send_bot_started_notification_handler(c: Cardinal, *args):
             continue
 
 
-BIND_TO_INIT_MESSAGE = [save_init_chats_handler]
+BIND_TO_INIT_MESSAGE = [save_init_chats_handler, update_threshold_on_initial_chat]
 
 BIND_TO_LAST_CHAT_MESSAGE_CHANGED = [old_log_msg_handler,
+                                     update_threshold_on_last_message_change,
                                      greetings_handler,
                                      add_old_user_handler,
                                      send_response_handler,
@@ -832,6 +870,7 @@ BIND_TO_LAST_CHAT_MESSAGE_CHANGED = [old_log_msg_handler,
                                      test_auto_delivery_handler]
 
 BIND_TO_NEW_MESSAGE = [log_msg_handler,
+                       update_threshold_on_last_message_change,
                        greetings_handler,
                        add_old_user_handler,
                        send_response_handler,

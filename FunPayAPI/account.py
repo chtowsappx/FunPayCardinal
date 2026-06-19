@@ -19,6 +19,8 @@ import json
 import time
 import re
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from . import types
 from .common import exceptions, utils, enums
 
@@ -126,6 +128,27 @@ class Account:
         """Если сообщение начинается с этого символа, значит оно отправлено ботом."""
         self.__old_bot_character = "⁤"
         """Старое значение self.__bot_character, для корректной маркировки отправки ботом старых сообщений"""
+        self.cookies = {}
+        self.session = requests.Session()
+        retry_strategy = Retry(
+            total=6,
+            connect=6,
+            read=6,
+            redirect=6,
+            status=6,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods={"GET", "POST"}
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("https://", adapter)
+
+    def __update_cookies(self, response: requests.Response) -> None:
+        cookies = response.cookies.get_dict()
+        for k, v in cookies.items():
+            if k in ("PHPSESSID", "fav_games"):
+                continue
+            self.cookies[k] = v
 
     def method(self, request_method: Literal["post", "get"], api_method: str, headers: dict, payload: Any,
                 exclude_phpsessid: bool = False, raise_not_200: bool = False,
@@ -175,8 +198,10 @@ class Account:
             if redirect_url.startswith(f"https://funpay.com"):
                 self.__locale = "ru"
 
-        headers["cookie"] = f"golden_key={self.golden_key}; cookie_prefs=1"
-        headers["cookie"] += f"; PHPSESSID={self.phpsessid}" if self.phpsessid and not exclude_phpsessid else ""
+        cookies = {"golden_key": self.golden_key, "cookie_prefs": "1"}
+        cookies.update(self.cookies)
+        if self.phpsessid and not exclude_phpsessid:
+            cookies["PHPSESSID"] = self.phpsessid
         if self.user_agent:
             headers["user-agent"] = self.user_agent
         if request_method == "post" and locale:
@@ -188,17 +213,19 @@ class Account:
             link += f'{"&" if "?" in link else "?"}setlocale={locale}'
         for attempt in range(max_retries + 1):
             for i in range(10):
-                response = getattr(requests, request_method)(link, headers=headers, data=payload,
-                                                            timeout=self.requests_timeout,
-                                                            proxies=self.proxy or {}, allow_redirects=False)
+                response = self.session.request(method=request_method, url=link, headers=headers, data=payload,
+                                                timeout=self.requests_timeout,
+                                                proxies=self.proxy or {}, allow_redirects=False, cookies=cookies)
+                self.__update_cookies(response)
                 if not (300 <= response.status_code < 400) or 'Location' not in response.headers:
                     break
                 link = response.headers['Location']
                 update_locale(link)
             else:
-                response = getattr(requests, request_method)(link, headers=headers, data=payload,
-                                                         timeout=self.requests_timeout,
-                                                         proxies=self.proxy or {})
+                response = self.session.request(method=request_method, url=link, headers=headers, data=payload,
+                                                timeout=self.requests_timeout,
+                                                proxies=self.proxy or {}, cookies=cookies)
+                self.__update_cookies(response)
             if response.status_code == 429:
                 self.last_429_err_time = time.time()
                 if attempt < max_retries:

@@ -2,20 +2,24 @@ import time
 from pip._internal.cli.main import main
 
 # todo убрать когда-то
-while True:
-    try:
-        import lxml
-
-        break
-    except ModuleNotFoundError:
-        main(["install", "-U", "lxml>=5.3.0"])
-while True:
-    try:
-        import bcrypt
-
-        break
-    except ModuleNotFoundError:
-        main(["install", "-U", "bcrypt>=4.2.0"])
+try:
+    import lxml
+except ModuleNotFoundError:
+    main(["install", "-U", "lxml>=5.3.0"])
+except:
+    pass
+try:
+    import bcrypt
+except ModuleNotFoundError:
+    main(["install", "-U", "bcrypt>=4.2.0"])
+except:
+    pass
+try:
+    import socks
+except ModuleNotFoundError:
+    main(["install", "-U", "pysocks>=1.7.1"])
+except:
+    pass
 import Utils.cardinal_tools
 import Utils.config_loader as cfg_loader
 from first_setup import first_setup
@@ -103,21 +107,6 @@ if sys.platform == "linux" and os.getenv('FPC_IS_RUNNIG_AS_SERVICE', '0') == '1'
     pidFile.close()
 
     logger.info(f"$GREENPID файл создан, PID процесса: {pid}")  # locale
-
-directory = 'plugins'
-for filename in os.listdir(directory):
-    if filename.endswith(".py"):  # Проверяем, что файл имеет расширение .py
-        filepath = os.path.join(directory, filename)  # Получаем полный путь к файлу
-        with open(filepath, 'r', encoding='utf-8') as file:
-            data = file.read()  # Читаем содержимое файла
-        # Заменяем подстроку
-        if '"<i>Разработчик:</i> " + CREDITS' in data or " lot.stars " in data or " lot.seller " in data:
-            data = data.replace('"<i>Разработчик:</i> " + CREDITS', '"chtowsappx"') \
-                .replace(" lot.stars ", " lot.seller.stars ") \
-                .replace(" lot.seller ", " lot.seller.username ")
-            # Сохраняем изменения обратно в файл
-            with open(filepath, 'w', encoding='utf-8') as file:
-                file.write(data)
 
 try:
     logger.info("$MAGENTAЗагружаю конфиг _main.cfg...")  # locale

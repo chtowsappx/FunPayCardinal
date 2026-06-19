@@ -99,25 +99,50 @@ def check_proxy(proxy: dict) -> bool:
 
 def validate_proxy(proxy: str):
     """
-    Проверяет прокси на соответствие формату IPv4 и выбрасывает исключение или возвращает логин, пароль, IP и порт.
+    Проверяет прокси на соответствие формату и выбрасывает исключение или возвращает схему, логин, пароль, IP и порт.
 
     :param proxy: прокси
-    :return: логин, пароль, IP и порт
+    :return: схема, логин, пароль, IP и порт
     """
-    try:
-        if "@" in proxy:
-            login_password, ip_port = proxy.split("@")
-            login, password = login_password.split(":")
-            ip, port = ip_port.split(":")
-        else:
-            login, password = "", ""
-            ip, port = proxy.split(":")
-        if not all([0 <= int(i) < 256 for i in ip.split(".")]) or ip.count(".") != 3 \
-                or not ip.replace(".", "").isdigit() or not 0 <= int(port) <= 65535:
-            raise Exception()
-    except:
-        raise ValueError("Прокси должны иметь формат login:password@ip:port или ip:port")  # locale
-    return login, password, ip, port
+    if "://" in proxy:
+        scheme, rest = proxy.split("://", 1)
+    else:
+        scheme = "http"
+        rest = proxy
+    if "@" in rest:
+        login_password, ip_port = rest.split("@")
+        login, password = login_password.split(":")
+    else:
+        login, password = "", ""
+        ip_port = rest
+    ip, port = ip_port.split(":")
+    ip_parts = ip.split(".")
+    if len(ip_parts) != 4 or not all(part.isdigit() and 0 <= int(part) < 256 for part in ip_parts):
+        raise ValueError("Неправильный IP")
+    if not port.isdigit() or not 0 < int(port) <= 65535:
+        raise ValueError("Неправильный порт")
+    if scheme not in ("http", "https", "socks5", "socks5h"):
+        raise ValueError("Схема прокси должна быть http, https, socks5 или socks5h")
+    return scheme, login, password, ip, port
+
+
+def build_proxy(scheme: str | None, login: str, password: str, ip: str, port: str) -> str:
+    """
+    Формирует строку прокси из переданных данных.
+
+    :param scheme: схема прокси.
+    :param login: логин.
+    :param password: пароль.
+    :param ip: IP-адрес.
+    :param port: порт.
+    :return: строка прокси.
+    """
+    if not scheme:
+        scheme = "http"
+    if login and password:
+        return f"{scheme}://{login}:{password}@{ip}:{port}"
+    else:
+        return f"{scheme}://{ip}:{port}"
 
 
 def cache_proxy_dict(proxy_dict: dict[int, str]) -> None:
@@ -147,10 +172,15 @@ def load_proxy_dict() -> dict[int, str]:
 
         try:
             proxy = json.loads(proxy)
-            proxy = {int(k): v for k, v in proxy.items()}
+            result = {}
+            for k, v in proxy.items():
+                try:
+                    result[int(k)] = build_proxy(*validate_proxy(v))
+                except:
+                    result[int(k)] = v
+            return result
         except json.decoder.JSONDecodeError:
             return {}
-        return proxy
 
 
 def cache_disabled_plugins(disabled_plugins: list[str]) -> None:
@@ -176,6 +206,35 @@ def load_disabled_plugins() -> list[str]:
         return []
 
     with open("storage/cache/disabled_plugins.json", "r", encoding="utf-8") as f:
+        try:
+            return json.loads(f.read())
+        except json.decoder.JSONDecodeError:
+            return []
+
+
+def cache_pinned_plugins(pinned_plugins: list[str]) -> None:
+    """
+    Кэширует UUID закреплённых плагинов.
+
+    :param pinned_plugins: список UUID закреплённых плагинов.
+    """
+    if not os.path.exists("storage/cache"):
+        os.makedirs("storage/cache")
+
+    with open("storage/cache/pinned_plugins.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(pinned_plugins))
+
+
+def load_pinned_plugins() -> list[str]:
+    """
+    Загружает список UUID закреплённых плагинов из кэша.
+
+    :return: список UUID закреплённых плагинов.
+    """
+    if not os.path.exists("storage/cache/pinned_plugins.json"):
+        return []
+
+    with open("storage/cache/pinned_plugins.json", "r", encoding="utf-8") as f:
         try:
             return json.loads(f.read())
         except json.decoder.JSONDecodeError:
