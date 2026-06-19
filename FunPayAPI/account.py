@@ -112,6 +112,8 @@ class Account:
         self.__initiated: bool = False
 
         self.__saved_chats: dict[int, types.ChatShortcut] = {}
+        self.interlocutor_ids: dict[str, int] = {}
+        """Кэш: chat_id -> interlocutor_id."""
         self.runner: Runner | None = None
         """Объект Runner'а."""
         self._logout_link: str | None = None
@@ -682,6 +684,9 @@ class Account:
             interlocutors.remove(str(self.id))
             interlocutor_id = int(interlocutors[0])
             is_private = True
+            chat_name = json_response["chat"]["node"]["name"]
+            self.interlocutor_ids[chat_name] = interlocutor_id
+            self.interlocutor_ids[str(chat_id)] = interlocutor_id
             if not interlocutor_username and (chat_shortcut := self.get_chat_by_id(chat_id)):
                 interlocutor_username = chat_shortcut.name
 
@@ -736,6 +741,8 @@ class Account:
                         interlocutors = name.split("-")[1:]
                         interlocutors.remove(str(self.id))
                         interlocutor_id = int(interlocutors[0])
+                        self.interlocutor_ids[name] = interlocutor_id
+                        self.interlocutor_ids[str(id_)] = interlocutor_id
                         interlocutor_name = chats_data.get(result_id) if isinstance(chats_data, dict) else None
                         if not interlocutor_name and (chat_shortcut:=self.get_chat_by_id(id_)):
                             interlocutor_name = chat_shortcut.name
