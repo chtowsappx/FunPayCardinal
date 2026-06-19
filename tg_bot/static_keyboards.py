@@ -10,6 +10,10 @@ def CLEAR_STATE_BTN() -> K:
     return K().add(B(_("gl_cancel"), callback_data=CBT.CLEAR_STATE))
 
 
+def UPLOAD_PLUGIN() -> K:
+    return K().add(B(_("gl_cancel"), callback_data=CBT.CLEAR_STATE))
+
+
 def REFRESH_BTN() -> K:
     return K().add(B(_("gl_refresh"), callback_data=CBT.UPDATE_PROFILE))
 
