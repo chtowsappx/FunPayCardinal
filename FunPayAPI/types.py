@@ -515,36 +515,74 @@ class Order:
         """Список товаров автовыдачи FunPay заказа."""
         self.locale: str | None = locale
         """Локаль заказа."""
-        # Алиасы для обратной совместимости
-        self.lot_params: list = []
         self.buyer_params: dict = {}
-        self.short_description: str | None = None
-        self.title: str | None = None
-        self.full_description: str | None = None
         self.html: str = ""
-        self.description: str | None = None
+
+    def get_field(self, key: str) -> "LotField | None":
+        return self.fields.get(key)
+
+    def get_field_value(self, key: str, locale: str | None = None) -> str | None:
+        field = self.get_field(key)
+        if not field:
+            return None
+        if isinstance(field.value, dict):
+            return field.value.get(locale)
+        return field.value
+
+    def get_field_value_any(self, key: str) -> str | None:
+        locales = [self.locale] + [l for l in ("ru", "en") if l != self.locale]
+        for locale in locales:
+            value = self.get_field_value(key, locale)
+            if value:
+                return value
+        return None
+
+    @property
+    def short_description(self) -> str | None:
+        return self.get_field_value_any("summary")
+
+    @property
+    def title(self) -> str | None:
+        return self.short_description
+
+    @property
+    def description(self) -> str | None:
+        return self.short_description
+
+    @property
+    def full_description(self) -> str | None:
+        return self.get_field_value_any("desc")
+
+    @property
+    def lot_params(self) -> list[tuple[str, str]]:
+        result = []
+        for key, field in self.fields.items():
+            if key in ("payment_msg", "desc", "summary"):
+                continue
+            v = self.get_field_value_any(key)
+            result.append((field.name, v))
+        return result
 
     @property
     def lot_params_text(self) -> str | None:
-        """
-        Возвращает параметры лота из заказа в виде строки.
-        """
         result = None
-        for k, v in self.lot_params:
-            s = f"{v} {k.lower()}" if v.isdigit() else v
+        for key, field in self.fields.items():
+            if key in ("payment_msg", "desc", "summary"):
+                continue
+            v = self.get_field_value_any(key)
+            if not v:
+                continue
+            s = f"{v} {field.name}" if (isinstance(v, int) or str(v).isdigit()) else v
             result = f'{result}, {s}' if result else s
         return result
 
     @property
     def lot_params_dict(self) -> dict[str, str]:
-        """
-        Возвращает параметры лота из заказа в виде словаря.
-
-        !!! Если названия дублируются - часть данных будет утеряна. !!!
-        """
         d = {}
-        for k, v in self.lot_params:
-            d[k] = v
+        for key, field in self.fields.items():
+            if key in ("payment_msg", "desc", "summary"):
+                continue
+            d[field.name] = self.get_field_value_any(key)
         return d
 
     def get_buyer_param(self, *args: str) -> str | None:
@@ -702,15 +740,14 @@ class LotFields:
     """
 
     def __init__(self, lot_id: int, fields: dict, subcategory: SubCategory | None = None,
-                 currency: Currency = Currency.UNKNOWN, calc_result: CalcResult | None = None, html: str = None, all_fields: dict = None):
+                 currency: Currency = Currency.UNKNOWN, calc_result: CalcResult | None = None,
+                 db_amount: int | None = None):
         self.lot_id: int = lot_id
         """ID лота."""
-        self.html: str = html
-        """HTML код страницы редактирования лота."""
         self.__fields: dict = fields
         """Поля лота."""
-        self.all_fields: dict = all_fields
-        """Все возможные варианты для <select> полей"""
+        self.__db_amount: int | None = db_amount
+        """Количество товара по данным БД FunPay."""
 
         self.title_ru: str = self.__fields.get("fields[summary][ru]", "")
         """Русское краткое описание (название) лота."""
@@ -734,7 +771,7 @@ class LotFields:
         """Кол-во товара."""
         self.price: float = float(i) if (i := self.__fields.get("price")) else None
         """Цена за 1шт."""
-        self.active: bool = self.__fields.get("active") == "on"
+        self.active: bool = False if db_amount == 0 else self.__fields.get("active") == "on"
         """Активен ли лот."""
         self.deactivate_after_sale: bool = self.__fields.get("deactivate_after_sale") == "on"
         """Деактивировать ли лот после продажи."""
