@@ -472,31 +472,33 @@ class Order:
     """
 
     def __init__(self, id_: str, status: OrderStatuses, subcategory: SubCategory | None,
-                 lot_params: list[tuple[str, str]], buyer_params: dict[str, str], short_description: str | None,
-                 full_description: str | None, amount: int, sum_: float, currency: Currency,
+                 server, side,
+                 fields: dict, amount, price: float, currency: Currency, player: str | None,
                  buyer_id: int, buyer_username: str,
                  seller_id: int, seller_username: str, chat_id: str | int,
-                 html: str, review: Review | None, order_secrets: list[str]):
+                 review: Review | None, order_secrets: list[str], locale: str | None = None):
         self.id: str = id_ if not id_.startswith("#") else id_[1:]
         """ID заказа."""
         self.status: OrderStatuses = status
         """Статус заказа."""
         self.subcategory: SubCategory | None = subcategory
         """Подкатегория, к которой относится заказ."""
-        self.lot_params: list[tuple[str, str]] = lot_params
-        """Параметры лота (значения некоторых полей заказа). Название параметра - значение"""
-        self.buyer_params: dict = buyer_params
-        """Параметры заказа, указанные покупателем"""
-        self.short_description: str | None = short_description
-        """Краткое описание (название) заказа. То же самое, что и Order.title."""
-        self.title: str | None = short_description
-        """Краткое описание (название) заказа. То же самое, что и Order.short_description."""
-        self.full_description: str | None = full_description
-        """Полное описание заказа."""
-        self.sum: float = sum_
+        self.server = server
+        """Сервер (если указан)."""
+        self.side = side
+        """Сторона (если указана)."""
+        self.fields: dict = fields
+        """Поля лота (dict[str, LotField])."""
+        self.amount = amount
+        """Количество."""
+        self.sum: float = price
         """Сумма заказа."""
+        self.price: float = price
+        """Сумма заказа (алиас sum)."""
         self.currency: Currency = currency
         """Валюта заказа."""
+        self.player: str | None = player
+        """Никнейм игрока (если указан)."""
         self.buyer_id: int = buyer_id
         """ID покупателя."""
         self.buyer_username: str = buyer_username
@@ -507,14 +509,20 @@ class Order:
         """Никнейм продавца."""
         self.chat_id: str | int = chat_id
         """ID чата."""
-        self.html: str = html
-        """HTML код заказа."""
         self.review: Review | None = review
         """Объект отзыва заказа."""
-        self.amount: int = amount
-        """Количество."""
         self.order_secrets: list[str] = order_secrets
         """Список товаров автовыдачи FunPay заказа."""
+        self.locale: str | None = locale
+        """Локаль заказа."""
+        # Алиасы для обратной совместимости
+        self.lot_params: list = []
+        self.buyer_params: dict = {}
+        self.short_description: str | None = None
+        self.title: str | None = None
+        self.full_description: str | None = None
+        self.html: str = ""
+        self.description: str | None = None
 
     @property
     def lot_params_text(self) -> str | None:
