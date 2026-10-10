@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from cardinal import Cardinal
 
 from tg_bot import utils, keyboards, CBT
-from tg_bot.static_keyboards import CLEAR_STATE_BTN, UPLOAD_PLUGIN
+from tg_bot.static_keyboards import UPLOAD_PLUGIN
 from locales.localizer import Localizer
 
 from telebot.types import InlineKeyboardMarkup as K, InlineKeyboardButton as B, Message, CallbackQuery

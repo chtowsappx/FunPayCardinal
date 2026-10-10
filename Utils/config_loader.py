@@ -280,6 +280,7 @@ def load_auto_response_config(config_path: str):
         try:
             check_param("response", config[command])
             check_param("telegramNotification", config[command], valid_values=["0", "1"], raise_if_not_exists=False)
+            check_param("enabled", config[command], valid_values=["0", "1"], raise_if_not_exists=False)
             check_param("notificationText", config[command], raise_if_not_exists=False)
             if "enabled" not in config[command]:
                 config.set(command, "enabled", "1")

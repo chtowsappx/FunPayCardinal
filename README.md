@@ -19,6 +19,7 @@
 - [Установка](#arrow_down-установка)
     - [Windows](#large_blue_diamond-windows)
     - [Linux (Ubuntu)](#hotsprings-linux-ubuntu)
+    - [Docker](#whale-docker)
 - [Установка плагинов](#electric_plug-установка-плагинов)
 - [Мне нужна помощь](#question-мне-нужна-помощь)
 - [Star it](#star-star-it)
@@ -85,7 +86,7 @@
 
 1. Скачайте и установите [Python 3.11.0](https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe).
     1. При установке поставьте галочку у `Add python.exe to PATH` на первом экране установки.
-2. Скачайте [FunPay Cardinal](https://github.com/chtowsappx/FunPayCardinal/archive/refs/heads/master.zip)
+2. Скачайте [FunPay Cardinal](https://github.com/chtowsappx/FunPayCardinal/archive/refs/heads/main.zip)
 3. Перенести папку `FunPayCardinal-main` в нужное Вам место.
 4. Перейдите в папку `FunPayCardinal-main`.
 5. Запустите файл `Setup.bat`. Дождитесь окончания загрузки пакетов.
@@ -117,6 +118,36 @@
 8. Повторите попытку установки скрипта:  
    `wget https://raw.githubusercontent.com/chtowsappx/FunPayCardinal/main/install-fpc.sh -O install-fpc.sh && bash install-fpc.sh`
 9. Если снова возникает ошибка, вернитесь к шагу 4.
+
+### :whale: Docker
+
+1. Установите [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/Mac) или Docker Engine +
+   Docker Compose (Linux) и запустите его.
+2. Скачайте [FunPay Cardinal](https://github.com/chtowsappx/FunPayCardinal/archive/refs/heads/master.zip) и распакуйте
+   архив, либо склонируйте репозиторий.
+3. Перейдите в папку проекта и соберите образ:
+   ```
+   docker compose build
+   ```
+4. При первом запуске Кардинал запросит настройки (логин, токены и т.д.) через консольный ввод, поэтому для
+   первичной настройки запустите разовый интерактивный контейнер:
+   ```
+   docker compose run --rm funpaycardinal
+   ```
+   Отвечайте на вопросы мастера настройки прямо в этом окне.
+5. Теперь можно запускать бота в фоне:
+   ```
+   docker compose up -d
+   ```
+6. Полезные команды:
+    - Логи: `docker compose logs -f`
+    - Подключиться к консоли запущенного контейнера: `docker attach
+      funpaycardinal` (отключиться без остановки контейнера — `Ctrl+P`, затем `Ctrl+Q`).
+    - Остановить: `docker compose down`.
+
+   Папки `configs`, `logs`, `storage` и `plugins` монтируются с хоста внутрь контейнера, поэтому все данные
+   сохраняются между перезапусками и пересборками образа.
+
 
 ## :electric_plug: Установка плагинов
 

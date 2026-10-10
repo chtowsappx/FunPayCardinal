@@ -97,9 +97,10 @@ def init_uploader(cardinal: Cardinal):
         tg.clear_state(m.chat.id, m.from_user.id, True)
         if not check_file(tg, m, type_="txt"):
             return
-        if not download_file(tg, m, m.document.file_name,
-                             custom_path=f"storage/products"):
-            return
+        with cardinal_tools.get_products_file_lock(f"storage/products/{m.document.file_name}"):
+            if not download_file(tg, m, m.document.file_name,
+                                 custom_path=f"storage/products"):
+                return
 
         try:
             products_count = cardinal_tools.count_products(f"storage/products/{utils.escape(m.document.file_name)}")
@@ -278,17 +279,15 @@ def init_uploader(cardinal: Cardinal):
             file_info = tg.bot.get_file(photo.file_id)
             file = tg.bot.download_file(file_info.file_path)
             image_id = cardinal.account.upload_image(file, type_="chat")
-            result = cardinal.account.send_message(chat_id, None, username, image_id)
+            result = cardinal.send_message(chat_id, f"$photo={image_id}", username, watermark=False)
             if not result:
-                tg.bot.reply_to(m, f'❌ Не удалось отправить сообщение в переписку '
-                                   f'<a href="https://funpay.com/chat/?node={chat_id}">{username}</a>. '
-                                   f'Подробнее в файле <code>logs/log.log</code>',
-                                reply_markup=keyboards.reply(chat_id, username, again=True))
-                return
+                raise Exception("Нету сообщений")
             tg.bot.reply_to(m, f'✅ Сообщение отправлено в переписку '
                                f'<a href="https://funpay.com/chat/?node={chat_id}">{username}</a>.',
                             reply_markup=keyboards.reply(chat_id, username, again=True))
         except:
+            logger.warning("Произошла ошибка при отправке изображения.")
+            logger.debug("TRACEBACK", exc_info=True)
             tg.bot.reply_to(m, f'❌ Не удалось отправить сообщение в переписку '
                                f'<a href="https://funpay.com/chat/?node={chat_id}">{username}</a>. '
                                f'Подробнее в файле <code>logs/log.log</code>',
@@ -328,6 +327,7 @@ def init_uploader(cardinal: Cardinal):
 
     def upload_offer_image(m: types.Message):
         upload_image(m, type_="offer")
+
 
     tg.cbq_handler(act_upload_products_file, lambda c: c.data == CBT.UPLOAD_PRODUCTS_FILE)
     tg.cbq_handler(act_upload_auto_response_config, lambda c: c.data == "upload_auto_response_config")

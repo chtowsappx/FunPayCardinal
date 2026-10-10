@@ -104,7 +104,6 @@ def main_settings(c: Cardinal) -> K:
              B(_("gs_autodisable", l('autoDisable')), None, f"{p}:autoDisable")) \
         .row(B(_("gs_old_msg_mode", l('oldMsgGetMode')), None, f"{p}:oldMsgGetMode"),
              B(f"❔", None, f"{CBT.OLD_MOD_HELP}"))
-
     if c.old_mode_enabled:
         kb = kb.add(B(_("gs_keep_sent_messages_unread", l('keepSentMessagesUnread')),
                       None, f"{p}:keepSentMessagesUnread"))
@@ -160,6 +159,7 @@ def greeting_settings(c: Cardinal):
         .add(B(_("gr_edit_message"), None, CBT.EDIT_GREETINGS_TEXT))
     if not only_new_chats:
         kb.add(B(_("gr_edit_cooldown").format(cd), None, CBT.EDIT_GREETINGS_COOLDOWN))
+
     kb.add(B(_("gl_back"), None, CBT.MAIN2))
     return kb
 
@@ -303,6 +303,8 @@ def notifications_settings(c: Cardinal, chat_id: int) -> K:
         .add(B(_("ns_other", l(n.other)), None, f"{p}:{n.other}")) \
         .add(B(_("gl_back"), None, CBT.MAIN))
     return kb
+
+
 
 
 def blacklist_settings(c: Cardinal) -> K:

@@ -142,6 +142,7 @@ pl_pin = "Pin"
 pl_unpin = "Unpin"
 pl_commands = "⌨️ Commands"
 pl_settings = "⚙️ Settings"
+pl_buy = "💸 Buy plugin"
 
 # Configs
 cfg_download_main = "⤵️ Download main config"
@@ -161,6 +162,8 @@ prx_proxy_add = "➕ Add proxy"
 lnk_github = "🛠️ Create your FunPay bot"
 lnk_updates = "🔄 Updates"
 lnk_chat = "💬 Chat"
+
+# Announcements
 
 # New order
 ord_refund = "💸 Make a refund"
@@ -261,12 +264,19 @@ proxy_format = "❌ Proxies must be in the format <u>login:password@ip:port</u> 
 proxy_adding_error = "❌ There was an error while adding the proxy."
 proxy_undeletable = "❌ This proxy cannot be deleted as it is currently in use."
 
-act_edit_watermark = "Enter a new watermark text. For example:\n{}\n<code>𝑭𝒖𝒏𝑷𝒂𝒚 𝑪𝒂𝒓𝒅𝒊𝒏𝒂𝒍</code>\n" \
-                     "<code>FunPay Cardinal</code>\n<code>[FunPay / Cardinal]</code>\n<code>𝑭𝑷𝑪</code>\n" \
-                     "<code>FPC</code>\n<code>🤖</code>\n<code>🐦</code>\n\n" \
-                     "You can copy examples by clicking and edit them as you like.\nKeep in mind that on FunPay, the emoji " \
-                     "🐦 looks different from Telegram." \
-                     "\n\nIf you want to remove the watermark, send <code>-</code>."
+act_edit_watermark = "Enter a new watermark text. For example:\n{}\n" \
+                     "<code>𝓕𝓾𝓷𝓟𝓪𝔂 𝓒𝓪𝓻𝓭𝓲𝓷𝓪𝓵</code>\n" \
+                     "<code>𝔽𝕦𝕟ℙ𝕒𝕪 ℂ𝕒𝕣𝕕𝕚𝕟𝕒𝕝</code>\n<code>ＦｕｎＰａｙ Ｃａｒｄｉｎａｌ</code>\n" \
+                     "<code>ꜰᴜɴᴘᴀʏ ᴄᴀʀᴅɪɴᴀʟ</code>\n<code>🄵🅄🄽🄿🄰🅈 🄲🄰🅁🄳🄸🄽🄰🄻</code>\n" \
+                     "<code>ⒻⓤⓝⓅⓐⓨ Ⓒⓐⓡⓓⓘⓝⓐⓛ</code>\n<code>𝐅𝐮𝐧𝐏𝐚𝐲 𝐂𝐚𝐫𝐝𝐢𝐧𝐚𝐥</code>\n" \
+                     "<code>𝗙𝘂𝗻𝗣𝗮𝘆 𝗖𝗮𝗿𝗱𝗶𝗻𝗮𝗹</code>\n<code>𝘍𝘶𝘯𝘗𝘢𝘺 𝘊𝘢𝘳𝘥𝘪𝘯𝘢𝘭</code>\n" \
+                     "<code>𝙁𝙪𝙣𝙋𝙖𝙮 𝘾𝙖𝙧𝙙𝙞𝙣𝙖𝙡</code>\n<code>𝙵𝚞𝚗𝙿𝚊𝚢 𝙲𝚊𝚛𝚍𝚒𝚗𝚊𝚕</code>\n" \
+                     "<code>ᖴᑌᑎᑭᗩY ᑕᗩᖇᗪIᑎᗩᒪ</code>\n" \
+                     "<code>FunPay Cardinal</code>\n<code>[FunPay / Cardinal]</code>\n" \
+                     "<code>🤖</code>\n<code>🐦</code>\n\n" \
+                     "You can tap on the examples to copy and edit them to your liking.\nNote that on FunPay, the emoji " \
+                     "🐦 looks different than in Telegram." \
+                     "\n\nTo remove the watermark, send <code>-</code>."
 watermark_changed = "✅ The message watermark has been changed."
 watermark_deleted = "✅ The message watermark has been deleted."
 watermark_error = "❌ Invalid watermark."
@@ -284,6 +294,7 @@ update_update = "To update, enter the command /update"
 update_backup = "✅ Backup of configs, storage and plugins <code>backup.zip</code>.\n\n" \
                 "⚠️ DO NOT SEND this archive to ANYONE. It contains ABSOLUTELY ALL content and settings of the bot (including golden_key and product files)."
 update_backup_error = "❌ Failed to back up configs, storage and plugins."
+update_backup_send_error = "❌ Failed to send the backup."
 update_backup_not_found = "❌ Backup not found."
 update_downloaded = "✅ The update {} is downloaded (skipped {} items). Installing..."
 update_download_error = "❌ An error occurred while downloading the update."
@@ -291,6 +302,8 @@ update_done = "✅ The update is installed! Restart the FPC with the /restart co
 update_done_exe = "✅ The update is installed! New <code>FPC.exe</code> is in <code>update</code> folder. " \
                   "Turn off <i>FPC</i>, replace old <code>FPC.exe</code> with new one and run <code>Start.bat</code>. "
 update_install_error = "❌ An error occurred while installing the update."
+
+send_backup = "Send me the backup.\n\n<b>⚠️ WARNING! Uploading backups from untrusted sources may lead to serious consequences.</b>"
 
 restarting = "Restarting..."
 power_off_0 = """<b><u>Are you sure you want to turn me off?</u></b>\n
@@ -458,6 +471,7 @@ cmd_update = "upgrade to the next version"
 cmd_sys = "system load information"
 cmd_create_backup = "create backup"
 cmd_get_backup = "get backup"
+cmd_upload_backup = "upload backup"
 cmd_restart = "restart FPC"
 cmd_power_off = "shutdown FPC"
 
@@ -588,7 +602,6 @@ crd_msg_send_err = "An error occurred when sending a message to chat $YELLOW{}$R
 crd_msg_attempts_left = "Attempts left: $YELLOW{}$RESET."
 crd_msg_no_more_attempts_err = "Failed to send a message to chat $YELLOW{}$RESET: the number of attempts exceeded."
 crd_msg_sent = "Sent a message to the chat $YELLOW{}."
-crd_msg_link_delay = "Failed to send message to chat $YELLOW{}$RESET. Waiting $YELLOW{}$RESET sec. before retrying."
 crd_session_timeout_err = "Failed to refresh session: timeout exceeded."
 crd_session_unexpected_err = "An unexpected error occurred while refreshing the session."
 crd_session_no_more_attempts_err = "Failed to refresh session: the number of attempts was exceeded."
@@ -599,8 +612,11 @@ crd_session_loop_started = "$CYANThe session refresh loop is running."
 crd_no_plugins_folder = "The plugins folder is not detected."
 crd_no_plugins = "No plugins detected."
 crd_plugin_load_err = "Failed to load plugin {}."
+crd_plugin_handlers_err = "Failed to register handlers of plugin {}. The plugin has been disabled."
 crd_invalid_uuid = "Failed to load plugin {}: invalid UUID."
 crd_uuid_already_registered = "UUID {} ({}) is already registered."
 crd_handlers_registered = "The handlers from $YELLOW{}.py$RESET are registered."
 crd_handler_err = "An error occurred in the handler's execution."
 crd_tg_au_err = "Failed to update the message with user information: {}. I will try without a link."
+
+crd_msg_link_delay = "Failed to send message to chat $YELLOW{}$RESET. Waiting $YELLOW{}$RESET sec. before retrying."

@@ -217,7 +217,7 @@ def init_auto_response_cp(cardinal: Cardinal, *args):
 
     def switch_command_settings(c: CallbackQuery):
         """
-        Вкл / Выкл настройку команды (enabled / telegramNotification).
+        Вкл / Выкл уведомление об использовании команды.
         """
         split = c.data.split(":")
         command_index, offset, setting = int(split[1]), int(split[2]), split[3]

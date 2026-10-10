@@ -16,6 +16,7 @@ import logging
 from bs4 import BeautifulSoup
 
 from ..common import exceptions
+from ..common.utils import strip_invisible_suffix
 from .events import *
 
 logger = logging.getLogger("FunPayAPI.runner")
@@ -90,10 +91,10 @@ class Runner:
         self.runner_len: int = 10
         """Количество событий, на которое успешно отвечает funpay.com/runner/"""
 
-        self.payload_queue: dict[str, dict] = {}
+        self.payload_queue: dict [str, dict] = {}
         """uuid4 - payload"""
 
-        self.runner_results: dict[str, requests.Response | Exception] = {}
+        self.runner_results: dict [str, requests.Response | Exception] = {}
         """uuid4 - response/exception"""
         self.account: Account = account
         """Экземпляр аккаунта, к которому привязан Runner."""
@@ -167,13 +168,25 @@ class Runner:
         result = set(result)
         while len(result) < amount and i < len(new_list):
             result.add(new_list[i])
-            i += 1
+            i+=1
 
         return list(result)
+
 
     def __fill_request_data(self, request_data: dict) -> dict:
         """
         Дополняет словарь запроса дополнительными объектами для отправки на сервер.
+
+        В зависимости от состояния объекта и настроек добавляет:
+        - `chat_bookmarks` для отслеживания списка диалогов,
+        - `orders_counters` для отслеживания счетчиков заказов,
+        - `chat_node` для запросов сообщений из чатов.
+
+        :param request_data: исходный словарь данных запроса.
+        :type request_data: dict
+
+        :return: обновленный словарь данных запроса с добавленными объектами.
+        :rtype: dict
         """
 
         if not self.__first_request:
@@ -198,6 +211,7 @@ class Runner:
             logger.warning("Что-то пошло не так во время подкидывания чатов.")
             logger.debug("TRACEBACK", exc_info=True)
         return request_data
+
 
     def loop(self):
         """
@@ -226,6 +240,7 @@ class Runner:
                         self.payload_queue.pop(id_, None)
                     else:
                         break
+
 
                 if not request_data["objects"] and not request_data["request"]:
                     time.sleep(0.1)
@@ -258,7 +273,7 @@ class Runner:
                         elif (self.make_msg_requests and
                               (obj["type"] == "chat_node" and (data := obj.get("data")) and
                                (node := data.get("node")) and
-                              (node_id := node.get("id")) and (messages := data.get("messages")))):
+                              (node_id:=node.get("id")) and (messages := data.get("messages")))):
                             last_msg_id = messages[-1]["id"]
                             if (last_msg_id > self.last_messages_ids.get(node_id, 0) and
                                     (node_id not in self.__chat_nodes or last_msg_id > self.__chat_nodes[node_id][-1])):
@@ -270,6 +285,8 @@ class Runner:
                 logger.error("Бабах")
                 logger.debug("TRACEBACK", exc_info=True)
 
+
+
     def get_updates(self) -> dict:
         """
         Запрашивает список событий FunPay.
@@ -278,7 +295,7 @@ class Runner:
         :rtype: :obj:`dict`
         """
         response = self.account.abuse_runner(last_msg_event_tag=self.__last_msg_event_tag,
-                                              last_order_event_tag=self.__last_order_event_tag)
+                                               last_order_event_tag=self.__last_order_event_tag)
         json_response = response.json()
         return json_response
 
@@ -288,10 +305,17 @@ class Runner:
         """
         Парсит ответ FunPay и создает события.
 
-        :param updates_objects: результат выполнения :meth:`FunPayAPI.updater.runner.Runner.get_updates`
-        :type updates_objects: :obj:`list`
+        :param updates: результат выполнения :meth:`FunPayAPI.updater.runner.Runner.get_updates`
+        :type updates: :obj:`dict`
 
         :return: список событий.
+        :rtype: :obj:`list` of :class:`FunPayAPI.updater.events.InitialChatEvent`,
+            :class:`FunPayAPI.updater.events.ChatsListChangedEvent`,
+            :class:`FunPayAPI.updater.events.LastChatMessageChangedEvent`,
+            :class:`FunPayAPI.updater.events.NewMessageEvent`, :class:`FunPayAPI.updater.events.InitialOrderEvent`,
+            :class:`FunPayAPI.updater.events.OrdersListChangedEvent`,
+            :class:`FunPayAPI.updater.events.NewOrderEvent`,
+            :class:`FunPayAPI.updater.events.OrderStatusChangedEvent`
         """
         events = []
         # сортируем в т.ч. для того, корректно реагировало на сообщения покупателей сразу после оплаты (плагины автовыдачи)
@@ -308,6 +332,16 @@ class Runner:
                                               NewMessageEvent]:
         """
         Парсит события, связанные с чатами.
+
+        :param obj: словарь из результата выполнения :meth:`FunPayAPI.updater.runner.Runner.get_updates`, где
+            "type" == "chat_bookmarks".
+        :type obj: :obj:`dict`
+
+        :return: список событий, связанных с чатами.
+        :rtype: :obj:list of :class:`FunPayAPI.updater.events.InitialChatEvent`,
+            :class:`FunPayAPI.updater.events.ChatsListChangedEvent`,
+            :class:`FunPayAPI.updater.events.LastChatMessageChangedEvent`,
+            :class:`FunPayAPI.updater.events.NewMessageEvent`
         """
         events, lcmc_events = [], []
         self.__last_msg_event_tag = obj.get("tag")
@@ -334,8 +368,7 @@ class Runner:
                 last_msg_text = last_msg_text[1:]
                 by_vertex = True
 
-            if last_msg_text.endswith(self.account.zero_width_suffix):
-                last_msg_text = last_msg_text[:-len(self.account.zero_width_suffix)]
+            last_msg_text = strip_invisible_suffix(last_msg_text)
 
             # если сообщение отправлено непрочитанным и вкл старый режим, то [0, 0, None] или [0, 0, "text"]
             prev_node_msg_id, prev_user_msg_id, prev_text = self.runner_last_messages.get(chat_id) or [-1, -1, None]
@@ -378,6 +411,7 @@ class Runner:
         lcmc_events_with_new_mess = []
         lcmc_events_with_chat_node = []
 
+
         for lcmc_event in lcmc_events:
             if lcmc_event.chat.node_msg_id <= self.last_messages_ids.get(lcmc_event.chat.id, -1):
                 lcmc_events_without_new_mess.append(lcmc_event)
@@ -387,6 +421,7 @@ class Runner:
                 lcmc_events_with_new_mess.append(lcmc_event)
         events.extend(lcmc_events_without_new_mess)
 
+
         chats_data = {i.chat.id: i.chat.name for i in lcmc_events_with_chat_node}
         chats = [self.__chat_nodes.pop(i.chat.id, ({}, -1))[0] for i in lcmc_events_with_chat_node]
         new_msg_events = self.generate_new_message_events(chats_data=chats_data,
@@ -395,6 +430,7 @@ class Runner:
             events.append(event)
             if new_msg_events.get(event.chat.id):
                 events.extend(new_msg_events[event.chat.id])
+
 
         while lcmc_events_with_new_mess:
             chats_pack = lcmc_events_with_new_mess[:self.runner_len]
@@ -411,9 +447,20 @@ class Runner:
         return events
 
     def generate_new_message_events(self, chats_data: dict[int, str],
-                                    chats: dict | None = None) -> dict[int, list[NewMessageEvent]]:
+                                    chats: dict[int | str, list[types.Message]] | None = None) -> dict[int, list[NewMessageEvent]]:
         """
         Получает историю переданных чатов и генерирует события новых сообщений.
+
+
+        :param chats_data: ID чатов и никнеймы собеседников (None, если никнейм неизвестен)
+            Например: {48392847: "SLLMK", 58392098: "Amongus", 38948728: None}
+        :type chats_data: :obj:`dict` {:obj:`int`: :obj:`str` or :obj:`None`}
+
+        :param chats: словарь с историями чатов в формате {ID чата: список сообщений}, если уже получены.
+        :type chats: dict[int | str, list[types.Message]] | None
+
+        :return: словарь с событиями новых сообщений в формате {ID чата: [список событий]}
+        :rtype: :obj:`dict` {:obj:`int`: :obj:`list` of :class:`FunPayAPI.updater.events.NewMessageEvent`}
         """
 
         if chats is None:
@@ -460,7 +507,7 @@ class Runner:
                             m.id > min(self.last_messages_ids.values(), default=10 ** 20)] or messages[-1:]
 
             self.last_messages_ids[cid] = messages[-1].id  # Перезаписываем ID последнего сообщение
-            self.chat_node_tags[cid] = messages[-1].tag  # Перезаписываем тег чата
+            self.chat_node_tags[cid] = messages[-1].tag # Перезаписываем тег чата
             self.users_ids[cid] = messages[-1].interlocutor_id
             self.by_bot_ids[cid] = [i for i in self.by_bot_ids[cid] if i > self.last_messages_ids[cid]]  # чистим память
 
@@ -474,6 +521,16 @@ class Runner:
                                                OrderStatusChangedEvent]:
         """
         Парсит события, связанные с продажами.
+
+        :param obj: словарь из результата выполнения :meth:`FunPayAPI.updater.runner.Runner.get_updates`, где
+            "type" == "orders_counters".
+        :type obj: :obj:`dict`
+
+        :return: список событий, связанных с продажами.
+        :rtype: :obj:`list` of :class:`FunPayAPI.updater.events.InitialOrderEvent`,
+            :class:`FunPayAPI.updater.events.OrdersListChangedEvent`,
+            :class:`FunPayAPI.updater.events.NewOrderEvent`,
+            :class:`FunPayAPI.updater.events.OrderStatusChangedEvent`
         """
         events = []
         self.__last_order_event_tag = obj.get("tag")
@@ -499,6 +556,11 @@ class Runner:
             logger.error("Не удалось обновить список продаж: превышено кол-во попыток.")
             return events
 
+        if self.saved_orders is not None and len(self.saved_orders) > len(orders_list) or len(orders_list) > 100:
+            logger.error(f"Что-то пошло не так при получении списка заказов.")
+            logger.debug(f"SAVED: {list(self.saved_orders.keys()) if self.saved_orders else self.saved_orders}")
+            logger.debug(f"ORDERS_LIST ({len(orders_list)}): {[i.id for i in orders_list]}")
+            return events
         now_orders = {}
         for order in orders_list:
             now_orders[order.id] = order
@@ -558,6 +620,13 @@ class Runner:
         :type ignore_exceptions: :obj:`bool`, опционально
 
         :return: генератор событий FunPay.
+        :rtype: :obj:`Generator` of :class:`FunPayAPI.updater.events.InitialChatEvent`,
+            :class:`FunPayAPI.updater.events.ChatsListChangedEvent`,
+            :class:`FunPayAPI.updater.events.LastChatMessageChangedEvent`,
+            :class:`FunPayAPI.updater.events.NewMessageEvent`, :class:`FunPayAPI.updater.events.InitialOrderEvent`,
+            :class:`FunPayAPI.updater.events.OrdersListChangedEvent`,
+            :class:`FunPayAPI.updater.events.NewOrderEvent`,
+            :class:`FunPayAPI.updater.events.OrderStatusChangedEvent`
         """
 
         while True:
@@ -567,7 +636,7 @@ class Runner:
                     updates_objects = self.get_updates()["objects"]
                     is_request_made = True
                 else:
-                    updates_objects = [self.__orders_counters]
+                    updates_objects = [self.__orders_counters,]
                     chat_bookmarks = self.__chat_bookmarks[::-1]
                     chat_ids = set()
                     for cb in chat_bookmarks:
