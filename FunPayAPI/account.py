@@ -1349,11 +1349,9 @@ class Account:
 
         self.__update_csrf_token(parser)
 
-        if not (chat_panel := parser.css_first('div.param-item.chat-panel')):
-            text, link = None, None
-        else:
-            a = chat_panel.css_first('a')
-            text, link = (_text(a), a.attributes['href'])
+        chat_panel = parser.css_first('div.param-item.chat-panel')
+        a = chat_panel.css_first('a[href]') if chat_panel is not None else None
+        text, link = (_text(a), a.attributes['href']) if a is not None else (None, None)
         if with_history:
             history = self.get_chats_histories({chat_id: name}).get(chat_id, [])
         else:
