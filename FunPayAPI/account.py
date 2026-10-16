@@ -11,7 +11,12 @@ if TYPE_CHECKING:
     from .updater.runner import Runner
 
 from requests_toolbelt import MultipartEncoder
-from bs4 import BeautifulSoup
+from selectolax.lexbor import LexborHTMLParser
+from .common._html import (
+    parse_html as _parse_html, text as _text,
+    first_text as _first_text, single_text as _single_text,
+    first_descendant as _first_descendant, ancestor as _ancestor,
+)
 from datetime import datetime, timedelta
 import requests
 import logging
@@ -262,27 +267,27 @@ class Account:
         if not self.is_initiated:
             self.locale = self.__default_locale
         html_response = response.content.decode()
-        parser = BeautifulSoup(html_response, "lxml")
-        username = parser.find("div", {"class": "user-link-name"})
+        parser = _parse_html(html_response)
+        username = parser.css_first('div.user-link-name')
         if not username:
             raise exceptions.UnauthorizedError(response)
-        self.username = username.text
-        self.app_data = json.loads(parser.find("body").get("data-app-data"))
+        self.username = _text(username)
+        self.app_data = json.loads(parser.css_first('body').attributes.get('data-app-data'))
         self.__locale = self.app_data.get("locale")
         self.id = self.app_data["userId"]
         self.csrf_token = self.app_data["csrf-token"]
-        self._logout_link = parser.find("a", class_="menu-item-logout").get("href")
-        active_sales = parser.find("span", {"class": "badge badge-trade"})
-        self.active_sales = int(active_sales.text) if active_sales else 0
-        balance = parser.find("span", class_="badge badge-balance")
+        self._logout_link = parser.css_first('a.menu-item-logout').attributes.get('href')
+        active_sales = parser.css_first('span.badge.badge-trade')
+        self.active_sales = int(_text(active_sales)) if active_sales else 0
+        balance = parser.css_first('span.badge.badge-balance')
         if balance:
-            balance, currency = balance.text.rsplit(" ", maxsplit=1)
+            balance, currency = _text(balance).rsplit(' ', maxsplit=1)
             self.total_balance = int(balance.replace(" ", ""))
             self.currency = parse_currency(currency)
         else:
             self.total_balance = 0
-        active_purchases = parser.find("span", {"class": "badge badge-orders"})
-        self.active_purchases = int(active_purchases.text) if active_purchases else 0
+        active_purchases = parser.css_first('span.badge.badge-orders')
+        self.active_purchases = int(_text(active_purchases)) if active_purchases else 0
 
         cookies = response.cookies.get_dict()
         if update_phpsessid or not self.phpsessid:
@@ -423,14 +428,14 @@ class Account:
         if locale:
             self.locale = self.__default_locale
         html_response = response.content.decode()
-        parser = BeautifulSoup(html_response, "lxml")
+        parser = _parse_html(html_response)
 
-        username = parser.find("div", {"class": "user-link-name"})
+        username = parser.css_first('div.user-link-name')
         if not username:
             raise exceptions.UnauthorizedError(response)
 
         self.__update_csrf_token(parser)
-        offers = parser.find_all("a", {"class": "tc-item"})
+        offers = parser.css('a.tc-item')
         if not offers:
             return []
 
@@ -439,46 +444,48 @@ class Account:
         sellers = {}
         currency = None
         for offer in offers:
-            offer_id = offer["href"].split("id=")[1]
-            promo = 'offer-promo' in offer.get('class', [])
-            description = offer.find("div", {"class": "tc-desc-text"})
-            description = description.text if description else None
-            server = offer.find("div", class_="tc-server")
-            server = server.text if server else None
-            side = offer.find("div", class_="tc-side")
-            side = side.text if side else None
-            tc_price = offer.find("div", {"class": "tc-price"})
+            offer_id = offer.attributes['href'].split('id=')[1]
+            promo = 'offer-promo' in (offer.attributes.get('class') or '').split()
+            description = offer.css_first('div.tc-desc-text')
+            description = _text(description) if description else None
+            server = offer.css_first('div.tc-server')
+            server = _text(server) if server else None
+            side = offer.css_first('div.tc-side')
+            side = _text(side) if side else None
+            tc_price = offer.css_first('div.tc-price')
             if subcategory_type is types.SubCategoryTypes.COMMON:
-                price = float(tc_price["data-s"])
+                price = float(tc_price.attributes['data-s'])
             else:
-                price = float(tc_price.find("div").text.rsplit(maxsplit=1)[0].replace(" ", ""))
+                price = float(_text(_first_descendant(tc_price, 'div')).rsplit(maxsplit=1)[0].replace(' ', ''))
             if currency is None:
-                currency = parse_currency(tc_price.find("span", class_="unit").text)
+                currency = parse_currency(_text(tc_price.css_first('span.unit')))
                 if self.currency != currency:
                     self.currency = currency
-            seller_soup = offer.find("div", class_="tc-user")
-            attributes = {k.replace("data-", "", 1): int(v) if v.isdigit() else v for k, v in offer.attrs.items()
-                          if k.startswith("data-")}
+            seller_soup = offer.css_first('div.tc-user')
+            attributes = {
+                key.replace("data-", "", 1): int(value) if value and value.isdigit() else value or ""
+                for key, value in offer.attributes.items() if key.startswith("data-")
+            }
 
             auto = attributes.get("auto") == 1
-            tc_amount = offer.find("div", class_="tc-amount")
-            amount = tc_amount.text.replace(" ", "") if tc_amount else None
+            tc_amount = offer.css_first('div.tc-amount')
+            amount = _text(tc_amount).replace(' ', '') if tc_amount else None
             amount = int(amount) if amount and amount.isdigit() else None
-            seller_key = str(seller_soup)
+            seller_key = seller_soup.html if seller_soup is not None else 'None'
             if seller_key not in sellers:
                 online = False
                 if attributes.get("online") == 1:
                     online = True
-                seller_body = offer.find("div", class_="media-body")
-                username = seller_body.find("div", class_="media-user-name").text.strip()
-                rating_stars = seller_body.find("div", class_="rating-stars")
+                seller_body = offer.css_first('div.media-body')
+                username = _text(seller_body.css_first('div.media-user-name')).strip()
+                rating_stars = seller_body.css_first('div.rating-stars')
                 if rating_stars is not None:
-                    rating_stars = len(rating_stars.find_all("i", class_="fas"))
-                k_reviews = seller_body.find("div", class_="media-user-reviews")
+                    rating_stars = len(rating_stars.css('i.fas'))
+                k_reviews = seller_body.css_first('div.media-user-reviews')
                 if k_reviews:
-                    k_reviews = "".join([i for i in k_reviews.text if i.isdigit()])
+                    k_reviews = ''.join([i for i in _text(k_reviews) if i.isdigit()])
                 k_reviews = int(k_reviews) if k_reviews else 0
-                user_id = int(seller_body.find("span", class_="pseudo-a")["data-href"].split("/")[-2])
+                user_id = int(seller_body.css_first('span.pseudo-a').attributes['data-href'].split('/')[-2])
                 seller = types.SellerShortcut(user_id, username, online, rating_stars, k_reviews, seller_key)
                 sellers[seller_key] = seller
             else:
@@ -488,8 +495,7 @@ class Account:
                     del attributes[i]
 
             lot_obj = types.LotShortcut(offer_id, server, side, description, amount, price, currency, subcategory_obj,
-                                        seller,
-                                        auto, promo, attributes, str(offer))
+                                        seller, auto, promo, attributes, offer.html)
             result.append(lot_obj)
         return result
 
@@ -511,14 +517,14 @@ class Account:
         if locale:
             self.locale = self.__default_locale
         html_response = response.content.decode()
-        parser = BeautifulSoup(html_response, "lxml")
+        parser = _parse_html(html_response)
 
-        username = parser.find("div", {"class": "user-link-name"})
+        username = parser.css_first('div.user-link-name')
         if not username:
             raise exceptions.UnauthorizedError(response)
 
         self.__update_csrf_token(parser)
-        offers = parser.find_all("a", class_="tc-item")
+        offers = parser.css('a.tc-item')
         if not offers:
             return []
 
@@ -526,26 +532,26 @@ class Account:
         result = []
         currency = None
         for offer in offers:
-            offer_id = offer["data-offer"]
-            description = offer.find("div", {"class": "tc-desc-text"})
-            description = description.text if description else None
-            server = offer.find("div", class_="tc-server")
-            server = server.text if server else None
-            side = offer.find("div", class_="tc-side")
-            side = side.text if side else None
-            tc_price = offer.find("div", class_="tc-price")
-            price = float(tc_price["data-s"])
+            offer_id = offer.attributes['data-offer']
+            description = offer.css_first('div.tc-desc-text')
+            description = _text(description) if description else None
+            server = offer.css_first('div.tc-server')
+            server = _text(server) if server else None
+            side = offer.css_first('div.tc-side')
+            side = _text(side) if side else None
+            tc_price = offer.css_first('div.tc-price')
+            price = float(tc_price.attributes['data-s'])
             if currency is None:
-                currency = parse_currency(tc_price.find("span", class_="unit").text)
+                currency = parse_currency(_text(tc_price.css_first('span.unit')))
                 if self.currency != currency:
                     self.currency = currency
-            auto = bool(tc_price.find("i", class_="auto-dlv-icon"))
-            tc_amount = offer.find("div", class_="tc-amount")
-            amount = tc_amount.text.replace(" ", "") if tc_amount else None
+            auto = bool(tc_price.css_first('i.auto-dlv-icon'))
+            tc_amount = offer.css_first('div.tc-amount')
+            amount = _text(tc_amount).replace(' ', '') if tc_amount else None
             amount = int(amount) if amount and amount.isdigit() else None
-            active = "warning" not in offer.get("class", [])
+            active = 'warning' not in (offer.attributes.get('class') or '').split()
             lot_obj = types.MyLotShortcut(offer_id, server, side, description, amount, price, currency, subcategory_obj,
-                                          auto, active, str(offer))
+                                          auto, active, offer.html)
             result.append(lot_obj)
         return result
 
@@ -568,23 +574,23 @@ class Account:
         if locale:
             self.locale = self.__default_locale
         html_response = response.content.decode()
-        parser = BeautifulSoup(html_response, "lxml")
-        username = parser.find("div", {"class": "user-link-name"})
+        parser = _parse_html(html_response)
+        username = parser.css_first('div.user-link-name')
         if not username:
             raise exceptions.UnauthorizedError(response)
 
         self.__update_csrf_token(parser)
 
-        if (page_header := parser.find("h1", class_="page-header")) \
-                and page_header.text in ("Предложение не найдено", "Пропозицію не знайдено", "Offer not found"):
+        if (page_header := parser.css_first('h1.page-header')) and _text(page_header) in (
+                'Предложение не найдено', 'Пропозицію не знайдено', 'Offer not found'):
             return None
 
-        subcategory_id = int(parser.find("a", class_="js-back-link")['href'].split("/")[-2])
-        chat_header = parser.find("div", class_="chat-header")
+        subcategory_id = int(parser.css_first('a.js-back-link').attributes['href'].split('/')[-2])
+        chat_header = parser.css_first('div.chat-header')
         if chat_header:
-            seller = chat_header.find("div", class_="media-user-name").find("a")
-            seller_id = int(seller["href"].split("/")[-2])
-            seller_username = seller.text
+            seller = chat_header.css_first('div.media-user-name').css_first('a')
+            seller_id = int(seller.attributes['href'].split('/')[-2])
+            seller_username = _text(seller)
         else:
             seller_id = self.id
             seller_username = self.username
@@ -592,16 +598,16 @@ class Account:
         short_description = None
         detailed_description = None
         image_urls = []
-        for param_item in parser.find_all("div", class_="param-item"):
-            if param_name := param_item.find("h5"):
-                if param_name.text in ("Краткое описание", "Короткий опис", "Short description"):
-                    short_description = param_item.find("div").text
-                elif param_name.text in ("Подробное описание", "Докладний опис", "Detailed description"):
-                    detailed_description = param_item.find("div").text
+        for param_item in parser.css('div.param-item'):
+            if (param_name := param_item.css_first('h5')):
+                if _text(param_name) in ('Краткое описание', 'Короткий опис', 'Short description'):
+                    short_description = _text(_first_descendant(param_item, 'div'))
+                elif _text(param_name) in ('Подробное описание', 'Докладний опис', 'Detailed description'):
+                    detailed_description = _text(_first_descendant(param_item, 'div'))
                 elif param_name in ("Картинки", "Зображення", "Images"):
-                    photos = param_item.find_all("a", class_="attachments-thumb")
+                    photos = param_item.css('a.attachments-thumb')
                     if photos:
-                        image_urls = [photo.get("href") for photo in photos]
+                        image_urls = [photo.attributes.get('href') for photo in photos]
 
         return types.LotPage(lot_id, self.get_subcategory(enums.SubCategoryTypes.COMMON, subcategory_id),
                              short_description, detailed_description, image_urls, seller_id, seller_username)
@@ -620,18 +626,21 @@ class Account:
             raise exceptions.AccountNotInitiatedError()
         response = self.method("get", f"lots/offer?id={lot_id}", {"accept": "*/*"}, {}, raise_not_200=True)
         html_response = response.content.decode()
-        parser = BeautifulSoup(html_response, "lxml")
+        parser = _parse_html(html_response)
 
-        username = parser.find("div", {"class": "user-link-name"})
+        username = parser.css_first('div.user-link-name')
         if not username:
             raise exceptions.UnauthorizedError(response)
 
         self.__update_csrf_token(parser)
 
-        balances = parser.find("select", {"name": "method"})
-        balance = types.Balance(float(balances["data-balance-total-rub"]), float(balances["data-balance-rub"]),
-                                float(balances["data-balance-total-usd"]), float(balances["data-balance-usd"]),
-                                float(balances["data-balance-total-eur"]), float(balances["data-balance-eur"]))
+        balances = parser.css_first('select[name="method"]')
+        balance = types.Balance(float(balances.attributes['data-balance-total-rub']),
+                                float(balances.attributes['data-balance-rub']),
+                                float(balances.attributes['data-balance-total-usd']),
+                                float(balances.attributes['data-balance-usd']),
+                                float(balances.attributes['data-balance-total-eur']),
+                                float(balances.attributes['data-balance-eur']))
         return balance
 
     def get_chat_history(self, chat_id: int | str, last_message_id: int | None = None,
@@ -904,7 +913,7 @@ class Account:
         else:
             tag = obj["tag"]
             mes = obj["data"]["messages"][-1]
-            parser = BeautifulSoup(mes["html"].replace("<br>", "\n"), "lxml")
+            parser = _parse_html(mes['html'].replace('<br>', '\n'))
             image_name = None
             image_link = None
             message_text = None
@@ -912,13 +921,12 @@ class Account:
             is_private_chat = not obj["data"]["node"]["silent"]
 
             try:
-                if image_tag := parser.find("a", {"class": "chat-img-link"}):
-                    image_name = image_tag.find("img")
-                    image_name = image_name.get('alt') if image_name else None
-                    image_link = image_tag.get("href")
+                if (image_tag := parser.css_first('a.chat-img-link')):
+                    image_name = image_tag.css_first('img')
+                    image_name = image_name.attributes.get('alt') if image_name else None
+                    image_link = image_tag.attributes.get('href')
                 else:
-                    message_text = parser.find("div", {"class": "chat-msg-text"}).text. \
-                        replace(self.__bot_character, "", 1)
+                    message_text = _text(parser.css_first('div.chat-msg-text')).replace(self.__bot_character, '', 1)
             except Exception as e:
                 logger.debug("SEND_MESSAGE RESPONSE")
                 logger.debug(response.content.decode())
@@ -1239,42 +1247,44 @@ class Account:
         if locale:
             self.locale = self.__default_locale
         html_response = response.content.decode()
-        parser = BeautifulSoup(html_response, "lxml")
+        parser = _parse_html(html_response)
 
-        username = parser.find("div", {"class": "user-link-name"})
+        username = parser.css_first('div.user-link-name')
         if not username:
             raise exceptions.UnauthorizedError(response)
 
         self.__update_csrf_token(parser)
 
-        username = parser.find("span", {"class": "mr4"}).text
-        user_status = parser.find("span", {"class": "media-user-status"})
-        user_status = user_status.text if user_status else ""
-        avatar_link = parser.find("div", {"class": "avatar-photo"}).get("style").split("(")[1].split(")")[0]
+        username = _text(parser.css_first('span.mr4'))
+        user_status = parser.css_first('span.media-user-status')
+        user_status = _text(user_status) if user_status else ''
+        avatar_link = parser.css_first('div.avatar-photo').attributes.get('style').split('(')[1].split(')')[0]
         avatar_link = avatar_link if avatar_link.startswith("https") else f"https://funpay.com{avatar_link}"
-        banned = bool(parser.find("span", {"class": "label label-danger"}))
-        activation = bool(parser.find("span", {"class": "label label-warning"}))
-        reg_data = parser.find("div", class_="text-nowrap")
-        reg_data = reg_data.text.split('\n')[1].strip() if reg_data else "Неизвестно"
-        user_badges = parser.find("small", {"class": "user-badges"})
-        support = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["поддержка", "support", "підтримка"])) if user_badges else False
-        arbitration = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["арбитраж", "арбітраж", "arbitration"])) if user_badges else False
-        moderation = bool(user_badges.find("span", {"class": "label label-success"}, text=lambda t: t and t in ["модерация", "модерація", "moderation"])) if user_badges else False
-        rating = parser.find("div", class_="rating-full-count")
-        rating = re.search(r"\d+", rating.text).group() if rating else "0"
-        reviews = parser.find("span", class_="big")
-        reviews = reviews.text if reviews else "0"
-        lots_count = len(parser.find_all("a", {"class": "tc-item"}))
+        banned = bool(parser.css_first('span.label.label-danger'))
+        activation = bool(parser.css_first('span.label.label-warning'))
+        reg_data = parser.css_first('div.text-nowrap')
+        reg_data = _text(reg_data).split('\n')[1].strip() if reg_data else 'Неизвестно'
+        user_badges = parser.css_first('small.user-badges')
+        badge_names = {_single_text(label) for label in user_badges.css('span.label.label-success')} \
+            if user_badges is not None else set()
+        support = bool(badge_names.intersection(('поддержка', 'support', 'підтримка')))
+        arbitration = bool(badge_names.intersection(('арбитраж', 'арбітраж', 'arbitration')))
+        moderation = bool(badge_names.intersection(('модерация', 'модерація', 'moderation')))
+        rating = parser.css_first('div.rating-full-count')
+        rating = re.search('\\d+', _text(rating)).group() if rating else '0'
+        reviews = parser.css_first('span.big')
+        reviews = _text(reviews) if reviews else '0'
+        lots_count = len(parser.css('a.tc-item'))
         user_obj = types.UserProfile(user_id, username, avatar_link, "Онлайн" in user_status or "Online" in user_status,
                                      banned, activation, reg_data, support, arbitration, moderation, rating, reviews, lots_count, html_response)
 
-        subcategories_divs = parser.find_all("div", {"class": "offer-list-title-container"})
+        subcategories_divs = parser.css('div.offer-list-title-container')
 
         if not subcategories_divs:
             return user_obj
 
         for i in subcategories_divs:
-            subcategory_link = i.find("h3").find("a").get("href")
+            subcategory_link = i.css_first('h3').css_first('a').attributes.get('href')
             subcategory_id = int(subcategory_link.split("/")[-2])
             subcategory_type = types.SubCategoryTypes.CURRENCY if "chips" in subcategory_link else \
                 types.SubCategoryTypes.COMMON
@@ -1282,33 +1292,31 @@ class Account:
             if not subcategory_obj:
                 continue
 
-            offers = i.parent.find_all("a", {"class": "tc-item"})
+            offers = i.parent.css('a.tc-item')
             currency = None
             for j in offers:
-                offer_id = j["href"].split("id=")[1]
-                description = j.find("div", {"class": "tc-desc-text"})
-                description = description.text if description else None
-                server = j.find("div", class_="tc-server")
-                server = server.text if server else None
-                side = j.find("div", class_="tc-side")
-                side = side.text if side else None
-                auto = j.find("i", class_="auto-dlv-icon") is not None
-                tc_price = j.find("div", {"class": "tc-price"})
-                tc_amount = j.find("div", class_="tc-amount")
-                amount = tc_amount.text.replace(" ", "") if tc_amount else None
+                offer_id = j.attributes['href'].split('id=')[1]
+                description = j.css_first('div.tc-desc-text')
+                description = _text(description) if description else None
+                server = j.css_first('div.tc-server')
+                server = _text(server) if server else None
+                side = j.css_first('div.tc-side')
+                side = _text(side) if side else None
+                auto = j.css_first('i.auto-dlv-icon') is not None
+                tc_price = j.css_first('div.tc-price')
+                tc_amount = j.css_first('div.tc-amount')
+                amount = _text(tc_amount).replace(' ', '') if tc_amount else None
                 amount = int(amount) if amount and amount.isdigit() else None
                 if subcategory_obj.type is types.SubCategoryTypes.COMMON:
-                    price = float(tc_price["data-s"])
+                    price = float(tc_price.attributes['data-s'])
                 else:
-                    price = float(tc_price.find("div").text.rsplit(maxsplit=1)[0].replace(" ", ""))
+                    price = float(_text(_first_descendant(tc_price, 'div')).rsplit(maxsplit=1)[0].replace(' ', ''))
                 if currency is None:
-                    currency = parse_currency(tc_price.find("span", class_="unit").text)
+                    currency = parse_currency(_text(tc_price.css_first('span.unit')))
                     if self.currency != currency:
                         self.currency = currency
-                lot_obj = types.LotShortcut(offer_id, server, side, description, amount, price, currency,
-                                            subcategory_obj,
-                                            None, auto,
-                                            None, None, str(j))
+                lot_obj = types.LotShortcut(offer_id, server, side, description, amount, price, currency, subcategory_obj,
+                                            None, auto, None, None, j.html)
                 user_obj.add_lot(lot_obj)
         return user_obj
 
@@ -1335,18 +1343,17 @@ class Account:
         if locale:
             self.locale = self.__default_locale
         html_response = response.content.decode()
-        parser = BeautifulSoup(html_response, "lxml")
-        if (name := parser.find("div", {"class": "chat-header"}).find("div", {"class": "media-user-name"}).find(
-                "a").text) in ("Чат", "Chat"):
+        parser = _parse_html(html_response)
+        if (name := _text(parser.css_first('div.chat-header').css_first('div.media-user-name').css_first('a'))) in ('Чат', 'Chat'):
             raise Exception("chat not found")  # todo
 
         self.__update_csrf_token(parser)
 
-        if not (chat_panel := parser.find("div", {"class": "param-item chat-panel"})):
+        if not (chat_panel := parser.css_first('div.param-item.chat-panel')):
             text, link = None, None
         else:
-            a = chat_panel.find("a")
-            text, link = a.text, a["href"]
+            a = chat_panel.css_first('a')
+            text, link = (_text(a), a.attributes['href'])
         if with_history:
             history = self.get_chats_histories({chat_id: name}).get(chat_id, [])
         else:
@@ -1511,33 +1518,33 @@ class Account:
             self.locale = self.__default_locale
         html_response = response.content.decode()
 
-        parser = BeautifulSoup(html_response, "lxml")
+        parser = _parse_html(html_response)
 
         if not start_from:
-            username = parser.find("div", {"class": "user-link-name"})
+            username = parser.css_first('div.user-link-name')
             if not username:
                 raise exceptions.UnauthorizedError(response)
 
-            header = parser.select_one("h1.page-header.page-header-no-hr")
-            header_text = next(header.stripped_strings, "").lower() if header else ""
+            header = parser.css_first('h1.page-header.page-header-no-hr')
+            header_text = _first_text(header).lower() if header else ''
             if header_text not in ("мої продажі", "мои продажи", "my sales"):
                 raise exceptions.UnauthorizedError(response)
 
-        next_order_id = parser.find("input", {"type": "hidden", "name": "continue"})
-        next_order_id = next_order_id.get("value") if next_order_id else None
+        next_order_id = parser.css_first('input[type="hidden"][name="continue"]')
+        next_order_id = next_order_id.attributes.get('value') if next_order_id else None
 
-        order_divs = parser.find_all("a", {"class": "tc-item"})
+        order_divs = parser.css('a.tc-item')
         if not start_from:
             subcategories = dict()
-            app_data = json.loads(parser.find("body").get("data-app-data"))
+            app_data = json.loads(parser.css_first('body').attributes.get('data-app-data'))
             locale = app_data.get("locale")
             self.csrf_token = app_data.get("csrf-token") or self.csrf_token
-            games_options = parser.find("select", attrs={"name": "game"})
+            games_options = parser.css_first('select[name="game"]')
             if games_options:
-                games_options = games_options.find_all(lambda x: x.name == "option" and x.get("value"))
+                games_options = [option for option in games_options.css('option') if option.attributes.get('value')]
                 for game_option in games_options:
-                    game_name = game_option.text
-                    sections_list = json.loads(game_option.get("data-data"))
+                    game_name = _text(game_option)
+                    sections_list = json.loads(game_option.attributes.get('data-data'))
                     for key, section_name in sections_list:
                         section_type, section_id = key.split("-")
                         section_type = types.SubCategoryTypes.COMMON if section_type == "lot" else types.SubCategoryTypes.CURRENCY
@@ -1550,7 +1557,7 @@ class Account:
 
         sales = []
         for div in order_divs:
-            classname = div.get("class")
+            classname = (div.attributes.get('class') or '').split()
             if "warning" in classname:
                 if not include_refunded:
                     continue
@@ -1564,30 +1571,30 @@ class Account:
                     continue
                 order_status = types.OrderStatuses.CLOSED
 
-            order_id = div.find("div", {"class": "tc-order"}).text[1:]
+            order_id = _text(div.css_first('div.tc-order'))[1:]
             if order_id in exclude_ids:
                 continue
 
-            description = div.find("div", {"class": "order-desc"}).find("div").text
-            tc_price = div.find("div", {"class": "tc-price"}).text
+            description = _text(_first_descendant(div.css_first('div.order-desc'), 'div'))
+            tc_price = _text(div.css_first('div.tc-price'))
             price, currency = tc_price.rsplit(maxsplit=1)
             price = float(price.replace(" ", ""))
             currency = parse_currency(currency)
 
-            buyer_div = div.find("div", {"class": "media-user-name"}).find("span")
-            buyer_username = buyer_div.text
-            buyer_id = int(buyer_div.get("data-href")[:-1].split("/users/")[1])
-            subcategory_name = div.find("div", {"class": "text-muted"}).text
+            buyer_div = div.css_first('div.media-user-name').css_first('span')
+            buyer_username = _text(buyer_div)
+            buyer_id = int(buyer_div.attributes.get('data-href')[:-1].split('/users/')[1])
+            subcategory_name = _text(div.css_first('div.text-muted'))
             subcategory = None
             if subcategories:
                 subcategory = subcategories.get(subcategory_name)
 
-            order_date_text = div.find("div", {"class": "tc-date-time"}).text
+            order_date_text = _text(div.css_first('div.tc-date-time'))
             order_date = utils.parse_funpay_datetime(order_date_text)
             id1, id2 = sorted([buyer_id, self.id])
             chat_id = f"users-{id1}-{id2}"
             order_obj = types.OrderShortcut(order_id, description, price, currency, buyer_username, buyer_id, chat_id,
-                                            order_status, order_date, subcategory_name, subcategory, str(div))
+                                            order_status, order_date, subcategory_name, subcategory, div.html)
             sales.append(order_obj)
 
         return next_order_id, sales, locale, subcategories
@@ -1633,20 +1640,20 @@ class Account:
         if not msgs:
             return []
 
-        parser = BeautifulSoup(msgs, "lxml")
-        chats = parser.find_all("a", {"class": "contact-item"})
+        parser = _parse_html(msgs)
+        chats = parser.css('a.contact-item')
         chats_objs = []
 
         for msg in chats:
-            chat_id = int(msg["data-id"])
+            chat_id = int(msg.attributes['data-id'])
             # Если чат удален админами - скип (аналогично runner.py: parse_chat_updates).
-            if not (last_msg_text := msg.find("div", {"class": "contact-item-message"})):
+            if not (last_msg_text := msg.css_first('div.contact-item-message')):
                 continue
-            last_msg_text = last_msg_text.text
-            unread = True if "unread" in msg.get("class") else False
-            chat_with = msg.find("div", {"class": "media-user-name"}).text
-            node_msg_id = int(msg.get('data-node-msg'))
-            user_msg_id = int(msg.get('data-user-msg'))
+            last_msg_text = _text(last_msg_text)
+            unread = True if 'unread' in (msg.attributes.get('class') or '').split() else False
+            chat_with = _text(msg.css_first('div.media-user-name'))
+            node_msg_id = int(msg.attributes.get('data-node-msg'))
+            user_msg_id = int(msg.attributes.get('data-user-msg'))
             by_bot = False
             by_vertex = False
             is_image = last_msg_text in ("Изображение", "Зображення", "Image")
@@ -1659,7 +1666,7 @@ class Account:
 
             last_msg_text = strip_invisible_suffix(last_msg_text)
 
-            chat_obj = types.ChatShortcut(chat_id, chat_with, last_msg_text, node_msg_id, user_msg_id, unread, str(msg))
+            chat_obj = types.ChatShortcut(chat_id, chat_with, last_msg_text, node_msg_id, user_msg_id, unread, msg.html)
             if not is_image:
                 chat_obj.last_by_bot = by_bot
                 chat_obj.last_by_vertex = by_vertex
@@ -1793,36 +1800,35 @@ class Account:
         response = self.method("get", f"lots/offerEdit?{tail}", headers, {}, raise_not_200=True)
 
         html_response = response.content.decode()
-        bs = BeautifulSoup(html_response, "lxml")
-        error_message = bs.find("p", class_="lead")
+        bs = _parse_html(html_response)
+        error_message = bs.css_first('p.lead')
         if error_message:
-            raise exceptions.LotParsingError(response, error_message.text, lot_id)
-        bs = bs.find("form", class_="form-offer-editor")
+            raise exceptions.LotParsingError(response, _text(error_message), lot_id)
+        bs = bs.css_first('form.form-offer-editor')
         result = {}
-        result.update(
-            {field["name"]: field.get("value") or "" for field in bs.find_all("input")})
-        result.update({field["name"]: field.text or "" for field in bs.find_all("textarea")})
+        result.update({field.attributes['name']: field.attributes.get('value') or '' for field in bs.css('input')})
+        result.update({field.attributes['name']: _text(field) or '' for field in bs.css('textarea')})
         result.update({
-            field["name"]: field.find("option", selected=True)["value"]
-            for field in bs.find_all("select") if
-            "hidden" not in field.find_parent(class_="form-group").get("class", [])
+            field.attributes['name']: field.css_first('option[selected]').attributes['value']
+            for field in bs.css('select')
+            if 'hidden' not in (_ancestor(field, 'form-group').attributes.get('class') or '').split()
         })
-        result.update({field["name"]: "on" for field in bs.find_all("input", {"type": "checkbox"}, checked=True)})
+        result.update({field.attributes['name']: 'on' for field in bs.css('input[type="checkbox"][checked]')})
         subcategory = self.get_subcategory(enums.SubCategoryTypes.COMMON, int(result.get("node_id", 0)))
         self.csrf_token = result.get("csrf_token") or self.csrf_token
-        currency = utils.parse_currency(bs.find("span", class_="form-control-feedback").text)
+        currency = utils.parse_currency(_text(bs.css_first('span.form-control-feedback')))
         if self.currency != currency:
             self.currency = currency
-        bs_buyer_prices = bs.find("table", class_="table-buyers-prices").find_all("tr")
+        bs_buyer_prices = bs.css_first('table.table-buyers-prices').css('tr')
         payment_methods = []
         for i, pm in enumerate(bs_buyer_prices):
-            pm_price, pm_currency = pm.find("td").text.rsplit(maxsplit=1)
+            pm_price, pm_currency = _text(pm.css_first('td')).rsplit(maxsplit=1)
             pm_price = float(pm_price.replace(" ", ""))
             pm_currency = parse_currency(pm_currency)
-            payment_methods.append(PaymentMethod(pm.find("th").text, pm_price, pm_currency, i))
+            payment_methods.append(PaymentMethod(_text(pm.css_first('th')), pm_price, pm_currency, i))
         calc_result = CalcResult(types.SubCategoryTypes.COMMON, subcategory.id, payment_methods,
                                  float(result["price"]), None, types.Currency.UNKNOWN, currency)
-        db_amount = json.loads(html.unescape(bs.get("data-offer"))).get("amount")
+        db_amount = json.loads(html.unescape(bs.attributes.get('data-offer'))).get('amount')
         return types.LotFields(lot_id, result, subcategory, currency, calc_result, db_amount)
 
     def get_chip_fields(self, subcategory_id: int) -> types.ChipFields:
@@ -1832,9 +1838,12 @@ class Account:
         response = self.method("get", f"chips/{subcategory_id}/trade", headers, {}, raise_not_200=True)
 
         html_response = response.content.decode()
-        bs = BeautifulSoup(html_response, "lxml")
-        result = {field["name"]: field.get("value") or "" for field in bs.find_all("input") if field["name"] != "query"}
-        result.update({field["name"]: "on" for field in bs.find_all("input", {"type": "checkbox"}, checked=True)})
+        bs = _parse_html(html_response)
+        result = {
+            field.attributes['name']: field.attributes.get('value') or ''
+            for field in bs.css('input') if field.attributes['name'] != 'query'
+        }
+        result.update({field.attributes['name']: 'on' for field in bs.css('input[type="checkbox"][checked]')})
         return types.ChipFields(self.id, subcategory_id, result)
 
     def save_offer(self, offer_fields: types.LotFields | types.ChipFields,
@@ -1908,7 +1917,7 @@ class Account:
             self.currency = currency
             return 1, currency
         else:
-            s = BeautifulSoup(b["modal"], "lxml").find("p", class_="lead").text.replace("\xa0", " ")
+            s = _text(_parse_html(b['modal']).css_first('p.lead')).replace('\xa0', ' ')
             match = RegularExpressions().EXCHANGE_RATE.fullmatch(s)
             assert match is not None
             swipe_to = match.group(2)
@@ -1944,18 +1953,18 @@ class Account:
     def get_wallets(self) -> list[types.Wallet]:
         """Получение сохраненных кошельков."""
         response = self.method("get", "account/wallets", {}, {}, raise_not_200=True)
-        bs = BeautifulSoup(response.content.decode(), "lxml")
-        bs = bs.find("form", class_="details-editor")
+        bs = _parse_html(response.content.decode())
+        bs = bs.css_first('form.details-editor')
         result = []
-        for el in bs.find_all("div", class_="form-group"):
-            data_n = int(el.get("data-n"))
-            detail_id = int(el.find("input", {"name": f"details[{data_n}][detail_id]"})["value"])
+        for el in bs.css('div.form-group'):
+            data_n = int(el.attributes.get('data-n'))
+            detail_id = int(el.css_first(f'input[name="details[{data_n}][detail_id]"]').attributes['value'])
             if not detail_id:
                 continue
-            is_masked = bool(int(el.find("input", {"name": f"details[{data_n}][is_masked]"})["value"]))
-            data = el.find("input", {"name": f"details[{data_n}][data]"})["value"]
-            type_id = el.find("select", {"name": f"details[{data_n}][type_id]"}).find("option", selected=True)
-            result.append(types.Wallet(type_id["value"], data, data_n, detail_id, is_masked, type_id.text))
+            is_masked = bool(int(el.css_first(f'input[name="details[{data_n}][is_masked]"]').attributes['value']))
+            data = el.css_first(f'input[name="details[{data_n}][data]"]').attributes['value']
+            type_id = el.css_first(f'select[name="details[{data_n}][type_id]"]').css_first('option[selected]')
+            result.append(types.Wallet(type_id.attributes['value'], data, data_n, detail_id, is_masked, _text(type_id)))
         return result
 
     def save_wallets(self, wallets: list[types.Wallet]):
@@ -2082,38 +2091,38 @@ class Account:
 
         :param html: HTML страница.
         """
-        parser = BeautifulSoup(html, "lxml")
-        games_table = parser.find_all("div", {"class": "promo-game-list"})
+        parser = _parse_html(html)
+        games_table = parser.css('div.promo-game-list')
         if not games_table:
             return
 
         games_table = games_table[1] if len(games_table) > 1 else games_table[0]
-        games_divs = games_table.find_all("div", {"class": "promo-game-item"})
+        games_divs = games_table.css('div.promo-game-item')
         if not games_divs:
             return
         game_position = 0
         subcategory_position = 0
         for i in games_divs:
-            gid = int(i.find("div", {"class": "game-title"}).get("data-id"))
-            gname = i.find("a").text
+            gid = int(i.css_first('div.game-title').attributes.get('data-id'))
+            gname = _text(i.css_first('a'))
             regional_games = {
                 gid: types.Category(gid, gname, position=game_position)
             }
             game_position += 1
-            if regional_divs := i.find("div", {"role": "group"}):
-                for btn in regional_divs.find_all("button"):
-                    regional_game_id = int(btn["data-id"])
-                    regional_games[regional_game_id] = types.Category(regional_game_id, f"{gname} ({btn.text})",
+            if (regional_divs := i.css_first('div[role="group"]')):
+                for btn in regional_divs.css('button'):
+                    regional_game_id = int(btn.attributes['data-id'])
+                    regional_games[regional_game_id] = types.Category(regional_game_id, f'{gname} ({_text(btn)})',
                                                                       position=game_position)
                     game_position += 1
 
-            subcategories_divs = i.find_all("ul", {"class": "list-inline"})
+            subcategories_divs = i.css('ul.list-inline')
             for j in subcategories_divs:
-                j_game_id = int(j["data-id"])
-                subcategories = j.find_all("li")
+                j_game_id = int(j.attributes['data-id'])
+                subcategories = j.css('li')
                 for k in subcategories:
-                    a = k.find("a")
-                    name, link = a.text, a["href"]
+                    a = k.css_first('a')
+                    name, link = (_text(a), a.attributes['href'])
                     stype = types.SubCategoryTypes.CURRENCY if "chips" in link else types.SubCategoryTypes.COMMON
                     sid = int(link.split("/")[-2])
                     sobj = types.SubCategory(sid, name, stype, regional_games[j_game_id], subcategory_position)
@@ -2141,16 +2150,15 @@ class Account:
             if i["id"] < from_id:
                 continue
             author_id = i["author"]
-            parser = BeautifulSoup(i["html"].replace("<br>", "\n"), "lxml")
+            parser = _parse_html(i['html'].replace('<br>', '\n'))
 
             # Если ник или бейдж написавшего неизвестен, но есть блок с данными об авторе сообщения
-            if None in [ids.get(author_id), badges.get(author_id)] and (
-                    author_div := parser.find("div", {"class": "media-user-name"})):
+            if None in [ids.get(author_id), badges.get(author_id)] and (author_div := parser.css_first('div.media-user-name')):
                 if badges.get(author_id) is None:
-                    badge = author_div.find("span", {"class": "chat-msg-author-label label label-success"})
-                    badges[author_id] = badge.text if badge else 0
+                    badge = author_div.css_first('span.chat-msg-author-label.label.label-success')
+                    badges[author_id] = _text(badge) if badge else 0
                 if ids.get(author_id) is None:
-                    author = author_div.find("a").text.strip()
+                    author = _text(author_div.css_first('a')).strip()
                     ids[author_id] = author
                     if mb_chat_is_private:
                         if author_id == interlocutor_id and not interlocutor_username:
@@ -2161,10 +2169,10 @@ class Account:
             by_bot = False
             by_vertex = False
             image_name = None
-            if mb_chat_is_private and (image_tag := parser.find("a", {"class": "chat-img-link"})):
-                image_name = image_tag.find("img")
-                image_name = image_name.get('alt') if image_name else None
-                image_link = image_tag.get("href")
+            if mb_chat_is_private and (image_tag := parser.css_first('a.chat-img-link')):
+                image_name = image_tag.css_first('img')
+                image_name = image_name.attributes.get('alt') if image_name else None
+                image_link = image_tag.attributes.get('href')
                 message_text = None
                 # "Отправлено_с_помощью_бота_FunPay_Cardinal.png", "funpay_cardinal_image.png"
                 if isinstance(image_name, str) and "funpay_cardinal" in image_name.lower():
@@ -2175,9 +2183,9 @@ class Account:
             else:
                 image_link = None
                 if author_id == 0:
-                    message_text = parser.find("div", role="alert").text.strip()
+                    message_text = _text(parser.css_first('div[role="alert"]')).strip()
                 else:
-                    message_text = parser.find("div", {"class": "chat-msg-text"}).text
+                    message_text = _text(parser.css_first('div.chat-msg-text'))
 
                 message_text = strip_invisible_suffix(message_text)
 
@@ -2204,7 +2212,7 @@ class Account:
             i.chat_name = interlocutor_username
             i.interlocutor_id = interlocutor_id
             i.badge = badges.get(i.author_id) if badges.get(i.author_id) != 0 else None
-            parser = BeautifulSoup(i.html, "lxml")
+            parser = _parse_html(i.html)
             if i.badge:
                 i.is_employee = True
                 if i.badge in ("поддержка", "підтримка", "support"):
@@ -2213,18 +2221,17 @@ class Account:
                     i.is_moderation = True
                 elif i.badge in ("арбитраж", "арбітраж", "arbitration"):
                     i.is_arbitration = True
-            default_label = parser.find("div", {"class": "media-user-name"})
-            default_label = default_label.find("span", {
-                "class": "chat-msg-author-label label label-default"}) if default_label else None
+            default_label = parser.css_first('div.media-user-name')
+            default_label = default_label.css_first('span.chat-msg-author-label.label.label-default') if default_label else None
             if default_label:
-                if default_label.text in ("автовідповідь", "автоответ", "auto-reply"):
+                if _text(default_label) in ('автовідповідь', 'автоответ', 'auto-reply'):
                     i.is_autoreply = True
-            i.badge = default_label.text if (i.badge is None and default_label is not None) else i.badge
+            i.badge = _text(default_label) if i.badge is None and default_label is not None else i.badge
             if i.type != types.MessageTypes.NON_SYSTEM:
-                users = parser.find_all('a', href=lambda href: href and '/users/' in href)
+                users = parser.css('a[href*="/users/"]')
                 if users:
-                    i.initiator_username = users[0].text
-                    i.initiator_id = int(users[0]["href"].split("/")[-2])
+                    i.initiator_username = _text(users[0])
+                    i.initiator_id = int(users[0].attributes['href'].split('/')[-2])
                     if i.type in (types.MessageTypes.ORDER_PURCHASED, types.MessageTypes.ORDER_CONFIRMED,
                                   types.MessageTypes.NEW_FEEDBACK,
                                   types.MessageTypes.FEEDBACK_CHANGED,
@@ -2244,7 +2251,7 @@ class Account:
                             i.i_am_seller = False
                             i.i_am_buyer = True
                     elif len(users) > 1:
-                        last_user_id = int(users[-1]["href"].split("/")[-2])
+                        last_user_id = int(users[-1].attributes['href'].split('/')[-2])
                         if i.type == types.MessageTypes.ORDER_CONFIRMED_BY_ADMIN:
                             if last_user_id == self.id:
                                 i.i_am_seller = True
@@ -2262,9 +2269,9 @@ class Account:
 
         return messages
 
-    def __update_csrf_token(self, parser: BeautifulSoup):
+    def __update_csrf_token(self, parser: LexborHTMLParser):
         try:
-            app_data = json.loads(parser.find("body").get("data-app-data"))
+            app_data = json.loads(parser.css_first('body').attributes.get('data-app-data'))
             self.csrf_token = app_data.get("csrf-token") or self.csrf_token
         except:
             logger.warning("Произошла ошибка при обновлении csrf.")
@@ -2280,8 +2287,8 @@ class Account:
         html = json_buyer_viewing["data"]["html"]
         if html:
             html = html["desktop"]
-            element = BeautifulSoup(html, "lxml").find("a")
-            link, text = element.get("href"), element.text
+            element = _parse_html(html).css_first('a')
+            link, text = (element.attributes.get('href'), _text(element))
         else:
             html, link, text = None, None, None
 

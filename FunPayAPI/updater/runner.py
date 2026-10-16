@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 import json
 import logging
-from bs4 import BeautifulSoup
+from ..common._html import parse_html as _parse_html, text as _text
 
 from ..common import exceptions
 from ..common.utils import strip_invisible_suffix
@@ -345,20 +345,20 @@ class Runner:
         """
         events, lcmc_events = [], []
         self.__last_msg_event_tag = obj.get("tag")
-        parser = BeautifulSoup(obj["data"]["html"], "lxml")
-        chats = parser.find_all("a", {"class": "contact-item"})
+        parser = _parse_html(obj['data']['html'])
+        chats = parser.css('a.contact-item')
 
         # Получаем все изменившиеся чаты
         for chat in chats:
-            chat_id = int(chat["data-id"])
+            chat_id = int(chat.attributes['data-id'])
             # Если чат удален админами - скип.
-            if not (last_msg_text := chat.find("div", {"class": "contact-item-message"})):
+            if not (last_msg_text := chat.css_first('div.contact-item-message')):
                 continue
 
-            last_msg_text = last_msg_text.text
+            last_msg_text = _text(last_msg_text)
 
-            node_msg_id = int(chat.get('data-node-msg'))
-            user_msg_id = int(chat.get('data-user-msg'))
+            node_msg_id = int(chat.attributes.get('data-node-msg'))
+            user_msg_id = int(chat.attributes.get('data-user-msg'))
             by_bot = False
             by_vertex = False
             if last_msg_text.startswith(self.account.bot_character):
@@ -379,11 +379,11 @@ class Runner:
                 # значит сообщение отправлено ботом и оставлено непрочитанным - просто обновляем инфу
                 self.runner_last_messages[chat_id] = [node_msg_id, user_msg_id, last_msg_text_or_none]
                 continue
-            unread = True if "unread" in chat.get("class") else False
+            unread = True if 'unread' in (chat.attributes.get('class') or '').split() else False
 
-            chat_with = chat.find("div", {"class": "media-user-name"}).text
+            chat_with = _text(chat.css_first('div.media-user-name'))
             chat_obj = types.ChatShortcut(chat_id, chat_with, last_msg_text, node_msg_id,
-                                          user_msg_id, unread, str(chat))
+                                          user_msg_id, unread, chat.html)
             if last_msg_text_or_none is not None:
                 chat_obj.last_by_bot = by_bot
                 chat_obj.last_by_vertex = by_vertex

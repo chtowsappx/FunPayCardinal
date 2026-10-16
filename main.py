@@ -3,9 +3,9 @@ from pip._internal.cli.main import main
 
 # todo убрать когда-то
 try:
-    import lxml
+    from selectolax.lexbor import LexborHTMLParser
 except ModuleNotFoundError:
-    main(["install", "-U", "lxml>=5.3.0"])
+    main(["install", "-U", "selectolax>=0.4.0"])
 except:
     pass
 try:
