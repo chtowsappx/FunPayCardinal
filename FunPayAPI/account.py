@@ -113,6 +113,9 @@ class Account:
         self.last_update: int | None = None
         """Последнее время обновления аккаунта."""
 
+        self.__admins: dict[int, tuple[str, str]] = {}
+        """Замеченные сотрудники FunPay: ID профиля — (ник, бейдж)."""
+
         self.__initiated: bool = False
 
         self.__saved_chats: dict[int, types.ChatShortcut] = {}
@@ -1542,11 +1545,29 @@ class Account:
                 games_options = [option for option in games_options.css('option') if option.attributes.get('value')]
                 for game_option in games_options:
                     game_name = _text(game_option)
-                    sections_list = json.loads(game_option.attributes.get('data-data'))
-                    for key, section_name in sections_list:
-                        section_type, section_id = key.split("-")
+                    raw_sections = game_option.attributes.get('data-options') or game_option.attributes.get('data-data')
+                    if not raw_sections:
+                        continue
+                    try:
+                        sections_list = json.loads(raw_sections)
+                    except (ValueError, TypeError):
+                        continue
+                    if isinstance(sections_list, dict):
+                        sections_list = sections_list.items()
+                    elif not isinstance(sections_list, list):
+                        continue
+                    for item in sections_list:
+                        if not isinstance(item, (list, tuple)) or len(item) < 2:
+                            continue
+                        key, section_name = item[0], item[1]
+                        if not isinstance(key, str):
+                            continue
+                        try:
+                            section_type, section_id = key.split("-")
+                            section_id = int(section_id)
+                        except ValueError:
+                            continue
                         section_type = types.SubCategoryTypes.COMMON if section_type == "lot" else types.SubCategoryTypes.CURRENCY
-                        section_id = int(section_id)
                         subcategories[f"{game_name}, {section_name}"] = self.get_subcategory(section_type, section_id)
             else:
                 subcategories = None
@@ -2191,9 +2212,9 @@ class Account:
                         message_text.startswith(self.__old_bot_character) and author_id == self.id:
                     message_text = message_text[1:]
                     by_bot = True
-                # todo придумать, как отсеять юзеров со старыми версиями кардинала (подождать обнову фп?)
-                # elif message_text.startswith(self.__old_bot_character):
-                #     by_vertex = True
+                elif message_text.startswith(self.__old_bot_character):
+                    message_text = message_text[1:]
+                    by_vertex = True
 
             message_obj = types.Message(i["id"], message_text, chat_id, interlocutor_username, interlocutor_id,
                                         None, author_id, i["html"], image_link, image_name,
@@ -2206,12 +2227,14 @@ class Account:
             messages.append(message_obj)
 
         for i in messages:
-            i.author = ids.get(i.author_id)
+            i.author = ids.get(i.author_id) or self.__admins.get(i.author_id, (None, None))[0]
             i.chat_name = interlocutor_username
             i.interlocutor_id = interlocutor_id
-            i.badge = badges.get(i.author_id) if badges.get(i.author_id) != 0 else None
+            i.badge = badges.get(i.author_id) or self.__admins.get(i.author_id, (None, None))[1]
             parser = _parse_html(i.html)
             if i.badge:
+                if i.author:
+                    self.__admins[i.author_id] = (i.author, i.badge)
                 i.is_employee = True
                 if i.badge in ("поддержка", "підтримка", "support"):
                     i.is_support = True
